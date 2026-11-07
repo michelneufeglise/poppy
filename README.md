@@ -37,7 +37,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Male or female.** Pick **Female Poppy** in Settings (or the menu-bar icon → Poppy) and every pose, name and the menu-bar icon switch to her drawings: the same 48 states, with cat ears.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
-- **Uses tools.** Hook up MCP servers (files, apps, the web) and Poppy can use them while you chat. Anything that changes something waits for your yes.
+- **Uses tools.** The weather, web search and your Spotify app are built in; hook up MCP servers (files, apps) for more. Anything that changes something waits for your yes (music controls excepted).
 - **Remembers and learns.** Facts about you, a knowledge graph of the people and things you mention, and lessons from your feedback. You can see and delete all of it.
 - **Falls asleep** after 10 minutes of quiet and wakes up when you hover over him.
 - **Stays out of the way.** No Dock icon; a small menu-bar icon has everything else.
@@ -206,6 +206,19 @@ Poppy can use tools from [MCP](https://modelcontextprotocol.io) servers while he
 
 **He asks first.** A tool that the server marks as read-only runs right away. Anything else waits: Poppy asks *May I use this?* in the balloon, with the tool and what it would do, and runs it only after you click **yes**. **no**, Esc or no answer within 2 minutes means no. To skip the question for a server you trust, tick *Let … change things without asking* under that server in Settings.
 
+### Poppy's own tools
+
+Three tools are built in. They're on as soon as **Let Poppy use tools** is on, and each has its own checkbox in Settings → Tools.
+
+| Tool | What Poppy can do | What it needs |
+|---|---|---|
+| **Weather** | The weather now and up to 7 days ahead, for your **home city** or any place you name. From [Open-Meteo](https://open-meteo.com), in °C and km/h. | Nothing. Set a home city in Settings. |
+| **Web search** | Search the web and read a page (`web_search`, `web_fetch`), through Ollama's web search API. | A free key from [ollama.com/settings/keys](https://ollama.com/settings/keys). |
+| **Music** | Play, pause, skip, go back, shuffle, set the volume and say what's playing, in the Spotify app on your Mac. | The Spotify app. The first time, macOS asks whether Poppy may control Spotify. |
+| **Music: play by name** | "Play Bohemian Rhapsody": Poppy searches Spotify and plays the best match (songs, albums, playlists, artists). | A Spotify developer app's client ID and secret ([developer.spotify.com](https://developer.spotify.com/dashboard), the owner needs Premium). Without them, Poppy opens the search in Spotify and you click play. |
+
+All three only read, except the music controls, which run without asking (skipping a song is harmless). Web pages and search results are marked as information, not instructions, so a page can't tell Poppy what to do. The keys are stored encrypted with your Mac's Keychain, like the Claude key, and never shown again (only `abcd…wxyz`).
+
 **Good to know:**
 - Tools work with the Ollama brain. Your model must support tools (qwen3.6 does; `ollama show <model>` lists "tools").
 - Only the chat gets tools. Learning, tidying up and the spoken wrap-up never do.
@@ -250,7 +263,7 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Mac voice speed | Speed for all Mac voices. |
 | Fall asleep after | Minutes of quiet before Poppy dozes off. Default 10. |
 | Learn from our chats | Memory learning on or off. |
-| Let Poppy use tools | MCP tools on or off. Off by default. Below it: each server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
+| Let Poppy use tools | Tools on or off. Off by default. Below it: Poppy's own tools (weather with a home city, web search with an Ollama key, music with optional Spotify keys), then each MCP server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
 | Tool rounds per reply | How many rounds of tool calls per reply (1–10). Default 5. |
 | Memory search model | The Ollama embedding model for memory search. Default `nomic-embed-text`; "None" searches by keywords. |
 
@@ -258,13 +271,14 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 
 ## Privacy
 
-- **With Ollama only (the default), everything stays on your Mac.** Poppy only talks to the Ollama address in Settings (your own computer by default).
+- **With Ollama only and tools off (the default), everything stays on your Mac.** Poppy only talks to the Ollama address in Settings (your own computer by default).
 - **With Claude switched on,** your messages, attached files, the memory note and the exchanges Poppy learns from go to Anthropic's API. See [Claude as Poppy's brain](#claude-as-poppys-brain-optional). Your API key is stored encrypted with the Mac's Keychain.
 - The only download is Kokoro's voice model from GitHub, once, on first start.
 - Files you attach are read on your Mac and sent only to Poppy's brain (your Ollama, or Claude when it's on). Poppy only reads files you pick or drop yourself.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
 - **Tools** (off by default) run the MCP servers you list in `mcp.json`, on your Mac. What a server does with your data is up to that server. Tools that can change things ask you first.
-- No analytics, no telemetry, and no accounts unless you add a Claude key yourself.
+- **Poppy's own tools,** when tools are on: the weather sends the place name to Open-Meteo; web search sends your search and the pages Poppy reads to ollama.com (with your key); playing music by name sends the search to Spotify. Music controls stay on your Mac.
+- No analytics, no telemetry, and no accounts unless you add a key yourself (Claude, Ollama web search, Spotify).
 
 ## Troubleshooting
 
@@ -316,7 +330,8 @@ src/
     claude.ts      Claude client (@anthropic-ai/sdk: streaming, JSON answers, model list)
     secrets.ts     the API key, encrypted with the Keychain (safeStorage)
     ollama.ts      Ollama client (streaming chat with tools, model list, image support check, embeddings)
-    mcp.ts         MCP servers from the tools file (@modelcontextprotocol/sdk): start, list tools, call them
+    mcp.ts         MCP servers from the tools file (@modelcontextprotocol/sdk) and Poppy's own tools: list and call them
+    tools/         Poppy's own tools: weather (Open-Meteo), web (Ollama web search), music (Spotify app + search)
     voice.ts       speech queue: Kokoro WAVs through afplay, or the Mac's say
     kokoro.ts      talks to the Kokoro helper process
     summary.ts     spoken wrap-up for long replies
@@ -325,7 +340,7 @@ src/
     settings.ts    settings.json
   preload/     the window.poppy bridge
   renderer/    the Poppy window (with the chat balloon), the settings window and the memory window
-  shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules, the tools file and tool rules)
+  shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules, the tools file and tool rules, Poppy's own tools' text)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
 scripts/

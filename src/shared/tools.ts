@@ -35,6 +35,8 @@ export interface ToolInfo {
   inputSchema: Record<string, unknown>
   /** The server says this tool only reads (MCP's readOnlyHint). */
   readOnly: boolean
+  /** Changes something harmless (one of Poppy's own music controls): no need to ask. */
+  harmless?: boolean
 }
 
 /** A tool in the shape of Ollama's `tools` field. */
@@ -150,9 +152,9 @@ export function toOllamaTools(tools: ToolInfo[]): OllamaTool[] {
   }))
 }
 
-/** Tools that only read, and tools of a server the user trusts, run without asking. */
+/** Tools that only read, harmless ones, and tools of a server the user trusts, run without asking. */
 export function needsAsk(tool: ToolInfo, trusted: string[]): boolean {
-  return !tool.readOnly && !trusted.includes(tool.server)
+  return !tool.readOnly && !tool.harmless && !trusted.includes(tool.server)
 }
 
 /** The model's arguments as an object (some models send a JSON string). */

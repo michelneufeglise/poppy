@@ -6,6 +6,8 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { existsSync, readFileSync, unwatchFile, watchFile, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import type { ToolServerStatus, ToolsStatus } from '../shared/types'
+import { BUILTIN_SERVERS } from '../shared/builtin'
+import type { BuiltinServer } from './tools/types'
 import { keepTool, parseToolsFile, toolResultText, TOOLS_FILE_EXAMPLE, uniqueNames, type ServerConfig, type ToolInfo } from '../shared/tools'
 
 /** Starting a server can take a while the first time (npx/uvx download it). */
@@ -24,8 +26,9 @@ interface Server {
 }
 
 /**
- * Poppy's MCP servers: started from the tools file when tools are switched on, restarted when
- * the file changes, stopped when they're switched off or Poppy quits.
+ * Poppy's tools: her own (weather, web, music: `builtins`) and MCP servers, started from the tools
+ * file when tools are switched on, restarted when the file changes, stopped when they're switched
+ * off or Poppy quits.
  */
 export class ToolBox {
   private servers: Server[] = []
@@ -34,7 +37,15 @@ export class ToolBox {
   private generation = 0
   private listeners = new Set<(s: ToolsStatus) => void>()
 
-  constructor(readonly file: string) {}
+  constructor(
+    readonly file: string,
+    private readonly builtins: () => BuiltinServer[] = () => []
+  ) {}
+
+  /** Settings or keys for Poppy's own tools changed: tell the settings window. */
+  refresh(): void {
+    this.changed()
+  }
 
   onStatus(fn: (s: ToolsStatus) => void): void {
     this.listeners.add(fn)
@@ -46,7 +57,16 @@ export class ToolBox {
   }
 
   status(): ToolsStatus {
-    return { enabled: this.enabled, file: this.file, problems: this.problems, servers: this.servers.map((s) => s.status) }
+    const own: ToolServerStatus[] = this.enabled
+      ? this.builtins().map((b) => ({
+          name: b.name,
+          state: b.problem ? 'error' : 'ready',
+          message: b.problem ?? '',
+          tools: b.tools.map((t) => ({ name: t.def.name, readOnly: t.def.readOnly, harmless: t.def.harmless })),
+          builtin: true
+        }))
+      : []
+    return { enabled: this.enabled, file: this.file, problems: this.problems, servers: [...own, ...this.servers.map((s) => s.status)] }
   }
 
   /** Makes the tools file with an empty server list when there isn't one yet. */
@@ -81,8 +101,12 @@ export class ToolBox {
       text = TOOLS_FILE_EXAMPLE
     }
     const parsed = parseToolsFile(text, process.env, homedir())
-    this.problems = parsed.problems
-    this.servers = parsed.servers.map((config) => ({
+    const reserved = (name: string): boolean => (BUILTIN_SERVERS as readonly string[]).includes(name)
+    this.problems = [
+      ...parsed.problems,
+      ...parsed.servers.filter((c) => reserved(c.name)).map((c) => `${c.name}: that name is taken by Poppy's own tools, so rename this server.`)
+    ]
+    this.servers = parsed.servers.filter((c) => !reserved(c.name)).map((config) => ({
       config,
       status: { name: config.name, state: 'starting', message: '', tools: [] },
       stderr: '',
@@ -163,13 +187,31 @@ export class ToolBox {
   /** Every tool of every server that's running, with unique names. */
   tools(): ToolInfo[] {
     if (!this.enabled) return []
-    const flat = this.servers.flatMap((s) => (s.client ? s.tools.map((t) => ({ server: s.config.name, ...t })) : []))
+    const own = this.builtins()
+      .filter((b) => !b.problem)
+      .flatMap((b) =>
+        b.tools.map((t) => ({
+          server: b.name,
+          original: t.def.name,
+          description: t.def.description,
+          inputSchema: t.def.inputSchema,
+          readOnly: t.def.readOnly,
+          harmless: t.def.harmless
+        }))
+      )
+    const flat = [...own, ...this.servers.flatMap((s) => (s.client ? s.tools.map((t) => ({ server: s.config.name, ...t })) : []))]
     const names = uniqueNames(flat.map((t) => ({ server: t.server, name: t.original })))
     return flat.map((t, i) => ({ ...t, name: names[i] }))
   }
 
   /** Runs one tool; the answer is text for the model (errors too, so the model can carry on). */
   async call(tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<{ ok: boolean; text: string }> {
+    const own = this.builtins().find((b) => b.name === tool.server)
+    if (own) {
+      const t = own.tools.find((x) => x.def.name === tool.original)
+      if (own.problem || !t) return { ok: false, text: `The ${tool.server} tools can't be used right now${own.problem ? `: ${own.problem}` : '.'}` }
+      return t.run(args, signal)
+    }
     const server = this.servers.find((s) => s.config.name === tool.server)
     if (!server?.client) return { ok: false, text: `The ${tool.server} tools aren't running right now.` }
     try {

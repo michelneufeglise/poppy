@@ -1,5 +1,5 @@
 import { followCharacterHeader } from './character'
-import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings, type ToolsStatus } from '../shared/types'
+import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings, type ToolKeys, type ToolsStatus } from '../shared/types'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -30,6 +30,18 @@ const toolServers = $<HTMLDivElement>('tool-servers')
 const toolsStatus = $<HTMLParagraphElement>('tools-status')
 const toolRounds = $<HTMLInputElement>('tool-rounds')
 let lastTools: ToolsStatus | null = null
+const weatherOn = $<HTMLInputElement>('weather-on')
+const homeCity = $<HTMLInputElement>('home-city')
+const webOn = $<HTMLInputElement>('web-on')
+const ollamaKey = $<HTMLInputElement>('ollama-key')
+const removeOllamaKey = $<HTMLButtonElement>('remove-ollama-key')
+const musicOn = $<HTMLInputElement>('music-on')
+const spotifyId = $<HTMLInputElement>('spotify-id')
+const spotifySecret = $<HTMLInputElement>('spotify-secret')
+const removeSpotify = $<HTMLButtonElement>('remove-spotify')
+let toolKeys: ToolKeys = { ollama: null, spotify: null }
+/** A message from the last key save, shown until the status changes. */
+const keyNotes: Record<string, { ok: boolean; message: string } | undefined> = {}
 const brainSel = $<HTMLSelectElement>('brain')
 const claudeBox = $<HTMLDivElement>('claude-box')
 const claudeKey = $<HTMLInputElement>('claude-key')
@@ -120,6 +132,10 @@ function render(): void {
   toolsOn.checked = settings.toolsEnabled
   toolsBox.hidden = !settings.toolsEnabled
   toolRounds.value = String(settings.toolRounds)
+  weatherOn.checked = settings.weatherTool
+  webOn.checked = settings.webTool
+  musicOn.checked = settings.musicTool
+  if (document.activeElement !== homeCity) homeCity.value = settings.homeCity
   showTools(lastTools)
 }
 
@@ -128,8 +144,9 @@ function showTools(st: ToolsStatus | null): void {
   lastTools = st
   if (!settings || !st) return
   const trusted = settings.toolsTrusted
+  showOwnTools(st)
   toolServers.replaceChildren(
-    ...st.servers.map((srv) => {
+    ...st.servers.filter((srv) => !srv.builtin).map((srv) => {
       const box = document.createElement('div')
       box.className = 'tool-server'
       const head = document.createElement('p')
@@ -160,10 +177,49 @@ function showTools(st: ToolsStatus | null): void {
     })
   )
   const lines = [...st.problems]
-  if (!st.servers.length && !st.problems.length) lines.push('No servers in the tools file yet. Add one with "Edit tools file…" (see the README for examples).')
+  if (!st.servers.some((srv) => !srv.builtin) && !st.problems.length) lines.push('No servers in the tools file yet. Add one with "Edit tools file…" (see the README for examples).')
   lines.push(`Tools file: ${st.file}`)
   toolsStatus.textContent = lines.join(' ')
   toolsStatus.className = st.problems.length ? 'hint error' : 'hint'
+}
+
+/** The status line under each of Poppy's own tools. */
+function showOwnTools(st: ToolsStatus): void {
+  const line = (name: 'weather' | 'web' | 'music', on: boolean, extra = ''): void => {
+    const el = $<HTMLParagraphElement>(`${name}-status`)
+    const srv = st.servers.find((x) => x.builtin && x.name === name)
+    const note = keyNotes[name]
+    let text = !on ? 'Off.' : !srv ? '' : srv.state === 'error' ? srv.message : `Ready: ${srv.tools.map((t) => t.name).join(', ')}.`
+    if (on && srv?.state !== 'error' && extra) text += ` ${extra}`
+    if (note) text = note.message
+    el.textContent = text
+    el.className = note ? (note.ok ? 'hint ok' : 'hint error') : on && srv?.state === 'error' ? 'hint error' : 'hint'
+  }
+  line('weather', settings!.weatherTool, settings!.homeCity ? '' : 'No home city yet.')
+  line('web', settings!.webTool, toolKeys.ollama ? `Key saved (${toolKeys.ollama}).` : '')
+  line('music', settings!.musicTool, toolKeys.spotify ? `Spotify keys saved (${toolKeys.spotify}): plays songs by name.` : 'No Spotify keys: opens searches in Spotify.')
+  removeOllamaKey.hidden = !toolKeys.ollama
+  removeSpotify.hidden = !toolKeys.spotify
+  ollamaKey.placeholder = toolKeys.ollama ?? 'from ollama.com'
+  spotifyId.placeholder = toolKeys.spotify ?? ''
+}
+
+async function saveToolKey(which: 'ollama' | 'spotify', first: string, second?: string): Promise<void> {
+  const name = which === 'ollama' ? 'web' : 'music'
+  keyNotes[name] = { ok: true, message: first ? 'Checking…' : 'Removing…' }
+  if (lastTools) showOwnTools(lastTools)
+  const res = await api.setToolKey(which, first, second)
+  if (res.ok) {
+    ollamaKey.value = which === 'ollama' ? '' : ollamaKey.value
+    if (which === 'spotify') spotifyId.value = spotifySecret.value = ''
+  }
+  keyNotes[name] = res
+  toolKeys = await api.toolKeys()
+  if (lastTools) showOwnTools(lastTools)
+  setTimeout(() => {
+    if (keyNotes[name] === res) keyNotes[name] = undefined
+    if (lastTools) showOwnTools(lastTools)
+  }, res.ok ? 3000 : 8000)
 }
 
 async function loadEmbedModels(): Promise<void> {
@@ -278,6 +334,29 @@ toolsOn.addEventListener('change', () => save({ toolsEnabled: toolsOn.checked })
 toolRounds.addEventListener('change', () => {
   const n = Math.min(10, Math.max(1, Math.round(Number(toolRounds.value) || 5)))
   void save({ toolRounds: n })
+})
+weatherOn.addEventListener('change', () => save({ weatherTool: weatherOn.checked }))
+webOn.addEventListener('change', () => save({ webTool: webOn.checked }))
+musicOn.addEventListener('change', () => save({ musicTool: musicOn.checked }))
+homeCity.addEventListener('change', () => save({ homeCity: homeCity.value.trim().slice(0, 100) }))
+$('save-ollama-key').addEventListener('click', () => {
+  if (ollamaKey.value.trim()) void saveToolKey('ollama', ollamaKey.value)
+})
+ollamaKey.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && ollamaKey.value.trim()) void saveToolKey('ollama', ollamaKey.value)
+})
+removeOllamaKey.addEventListener('click', () => void saveToolKey('ollama', ''))
+$('save-spotify').addEventListener('click', () => {
+  if (spotifyId.value.trim() || spotifySecret.value.trim()) void saveToolKey('spotify', spotifyId.value, spotifySecret.value)
+})
+removeSpotify.addEventListener('click', () => void saveToolKey('spotify', '', ''))
+api.onToolKeys((k) => {
+  toolKeys = k
+  if (lastTools) showOwnTools(lastTools)
+})
+void api.toolKeys().then((k) => {
+  toolKeys = k
+  if (lastTools) showOwnTools(lastTools)
 })
 $('edit-tools').addEventListener('click', () => api.openToolsFile())
 $('reload-tools').addEventListener('click', () => api.reloadTools())

@@ -131,8 +131,41 @@
         <section>
           <h2>Tools</h2>
           <label class="check"><input id="tools-on" type="checkbox" /> Let Poppy use tools</label>
-          <p class="hint">Tools come from MCP servers in the tools file (the same format as ollama-mcp-bridge). Tools that only read run right away; anything else asks you first in the chat. Works with the Ollama brain.</p>
-          <div id="tools-box">
+          <p class="hint">Tools that only read run right away; anything else asks you first in the chat. Works with the Ollama brain.</p>
+          <div id="tools-box" class="group">
+            <h3>Poppy's own tools</h3>
+            <div class="group">
+              <label class="check"><input id="weather-on" type="checkbox" /> Weather</label>
+              <label for="home-city">Home city <span class="hint-inline">(when you don't name a place)</span></label>
+              <span class="field"><input id="home-city" type="text" autocomplete="off" spellcheck="false" placeholder="Utrecht, Netherlands" /></span>
+              <p id="weather-status" class="hint"></p>
+            </div>
+            <div class="group">
+              <label class="check"><input id="web-on" type="checkbox" /> Web search</label>
+              <label for="ollama-key">Ollama key</label>
+              <div class="row">
+                <span class="field"><input id="ollama-key" type="password" autocomplete="off" spellcheck="false" placeholder="from ollama.com" /></span>
+                <button id="save-ollama-key" class="btn" type="button">Save</button>
+              </div>
+              <p id="web-status" class="hint"></p>
+              <button id="remove-ollama-key" class="btn" type="button" hidden>Remove key</button>
+              <p class="hint">Make a free key at ollama.com/settings/keys. Your searches and the pages Poppy reads go through ollama.com.</p>
+            </div>
+            <div class="group">
+              <label class="check"><input id="music-on" type="checkbox" /> Music (Spotify app)</label>
+              <label for="spotify-id">Spotify client ID</label>
+              <span class="field"><input id="spotify-id" type="text" autocomplete="off" spellcheck="false" /></span>
+              <label for="spotify-secret">Spotify client secret</label>
+              <div class="row">
+                <span class="field"><input id="spotify-secret" type="password" autocomplete="off" spellcheck="false" /></span>
+                <button id="save-spotify" class="btn" type="button">Save</button>
+              </div>
+              <p id="music-status" class="hint"></p>
+              <button id="remove-spotify" class="btn" type="button" hidden>Remove Spotify keys</button>
+              <p class="hint">Play, pause, skip and "what's playing" work without keys, and run without asking. To play songs by name, make an app at developer.spotify.com (the owner needs Premium) and paste its client ID and secret. Without them, Poppy opens the search in Spotify.</p>
+            </div>
+            <h3>More tools (MCP servers)</h3>
+            <p class="hint">From the tools file (the same format as ollama-mcp-bridge).</p>
             <div id="tool-servers"></div>
             <p id="tools-status" class="hint"></p>
             <div class="row">

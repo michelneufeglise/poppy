@@ -12,6 +12,7 @@ import type {
   SpeechLang,
   ToolAsk,
   ToolsStatus,
+  ToolKeys,
   ToolUse,
   VoiceInfo
 } from '../shared/types'
@@ -95,6 +96,11 @@ const api = {
   reloadTools: () => ipcRenderer.invoke('tools:reload') as Promise<void>,
   openToolsFile: () => ipcRenderer.invoke('tools:open-file') as Promise<void>,
   onToolsStatus: (cb: (s: ToolsStatus) => void) => on('tools:status', cb),
+  // keys for Poppy's own tools (web search, Spotify): only ever sent from this page to main
+  toolKeys: () => ipcRenderer.invoke('tools:keys') as Promise<ToolKeys>,
+  setToolKey: (which: 'ollama' | 'spotify', first: string, second?: string) =>
+    ipcRenderer.invoke('tools:set-key', which, first, second) as Promise<{ ok: boolean; message: string }>,
+  onToolKeys: (cb: (k: ToolKeys) => void) => on('tools:keys', cb),
   listVoices: () => ipcRenderer.invoke('voice:list') as Promise<VoiceInfo[]>,
   testVoice: (lang: SpeechLang) => ipcRenderer.send('voice:test', lang),
   getKokoroStatus: () => ipcRenderer.invoke('voice:kokoro-status') as Promise<KokoroStatus>,

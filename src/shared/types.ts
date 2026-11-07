@@ -105,6 +105,12 @@ export interface Settings {
   toolsTrusted: string[]
   /** Rounds of tool calls per reply before Poppy has to answer. */
   toolRounds: number
+  /** Poppy's own tools (only used when toolsEnabled): weather from Open-Meteo, web search through Ollama, Spotify. */
+  weatherTool: boolean
+  webTool: boolean
+  musicTool: boolean
+  /** The place get_weather uses when the user doesn't name one. */
+  homeCity: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -128,7 +134,11 @@ export const DEFAULT_SETTINGS: Settings = {
   embedModel: 'nomic-embed-text',
   toolsEnabled: false,
   toolsTrusted: [],
-  toolRounds: 5
+  toolRounds: 5,
+  weatherTool: true,
+  webTool: true,
+  musicTool: true,
+  homeCity: ''
 }
 
 export interface ChatUpdate {
@@ -209,7 +219,9 @@ export interface ToolServerStatus {
   state: 'starting' | 'ready' | 'error'
   /** Why it didn't start, or the tools file's problem. */
   message: string
-  tools: { name: string; readOnly: boolean }[]
+  tools: { name: string; readOnly: boolean; harmless?: boolean }[]
+  /** One of Poppy's own tool groups (not from the tools file). */
+  builtin?: boolean
 }
 
 export interface ToolsStatus {
@@ -234,6 +246,12 @@ export interface ToolUse {
   id: number
   tool: string
   state: 'running' | 'done' | 'failed' | 'refused'
+}
+
+/** Which keys for Poppy's own tools are saved (masked, never the keys themselves). */
+export interface ToolKeys {
+  ollama: string | null
+  spotify: string | null
 }
 
 /** What the settings window shows about Claude (never the key itself). */

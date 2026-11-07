@@ -3,43 +3,61 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 /**
- * The Anthropic API key, encrypted with a key that macOS keeps in the user's Keychain
- * (Electron's safeStorage). It never goes into settings.json and never back to a window.
+ * API keys (Anthropic, Ollama web search, Spotify), each encrypted with a key that macOS keeps in the
+ * user's Keychain (Electron's safeStorage). They never go into settings.json and never back to a window.
  */
+export type SecretName = 'anthropic' | 'ollama' | 'spotifyId' | 'spotifySecret'
+
 const file = (): string => join(app.getPath('userData'), 'secrets.json')
 
-let key: string | null | undefined
+let cache: Partial<Record<SecretName, string>> | undefined
 
-export function getApiKey(): string | null {
-  if (key !== undefined) return key
-  key = null
+function readAll(): Partial<Record<SecretName, string>> {
+  if (cache) return cache
+  cache = {}
   try {
-    const data = JSON.parse(readFileSync(file(), 'utf8')) as { anthropic?: string }
-    if (data.anthropic && safeStorage.isEncryptionAvailable()) {
-      key = safeStorage.decryptString(Buffer.from(data.anthropic, 'base64'))
+    const data = JSON.parse(readFileSync(file(), 'utf8')) as Partial<Record<SecretName, string>>
+    if (safeStorage.isEncryptionAvailable()) {
+      for (const [name, value] of Object.entries(data)) {
+        if (typeof value === 'string' && value) cache[name as SecretName] = safeStorage.decryptString(Buffer.from(value, 'base64'))
+      }
     }
   } catch {
-    // No key saved yet.
+    // Nothing saved yet.
   }
-  return key
+  return cache
 }
 
-/** Saves the key (an empty string removes it). Throws when the Mac can't encrypt it. */
-export function setApiKey(value: string): void {
+export function getSecret(name: SecretName): string | null {
+  return readAll()[name] ?? null
+}
+
+/** Saves one secret (an empty string removes it). Throws when the Mac can't encrypt it. */
+export function setSecret(name: SecretName, value: string): void {
   const clean = value.trim()
-  if (!clean) {
+  const all = { ...readAll() }
+  if (clean) {
+    if (!safeStorage.isEncryptionAvailable()) throw new Error("This Mac can't encrypt the key right now, so it wasn't saved.")
+    all[name] = clean
+  } else delete all[name]
+  cache = all
+  const names = Object.keys(all) as SecretName[]
+  if (!names.length) {
     rmSync(file(), { force: true })
-    key = null
     return
   }
-  if (!safeStorage.isEncryptionAvailable()) throw new Error("This Mac can't encrypt the key right now, so it wasn't saved.")
+  const out: Partial<Record<SecretName, string>> = {}
+  for (const n of names) out[n] = safeStorage.encryptString(all[n]!).toString('base64')
   mkdirSync(dirname(file()), { recursive: true })
-  writeFileSync(file(), JSON.stringify({ anthropic: safeStorage.encryptString(clean).toString('base64') }), { mode: 0o600 })
-  key = clean
+  writeFileSync(file(), JSON.stringify(out), { mode: 0o600 })
 }
 
 /** "sk-ant-…abcd", for showing that a key is set without showing the key. */
-export function maskedApiKey(): string | null {
-  const k = getApiKey()
-  return k ? `${k.slice(0, 7)}…${k.slice(-4)}` : null
+export function maskSecret(name: SecretName, keep = 7): string | null {
+  const k = getSecret(name)
+  return k ? `${k.slice(0, Math.min(keep, Math.floor(k.length / 3)))}…${k.slice(-4)}` : null
 }
+
+export const getApiKey = (): string | null => getSecret('anthropic')
+export const setApiKey = (value: string): void => setSecret('anthropic', value)
+export const maskedApiKey = (): string | null => maskSecret('anthropic')
