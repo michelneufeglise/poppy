@@ -52,6 +52,11 @@ export const KOKORO_VOICES = [
 export type SpeechLang = 'en' | 'nl'
 
 export interface Settings {
+  /** Who answers: Claude (with an API key) or Ollama only. Memory search always stays on Ollama. */
+  brain: 'ollama' | 'claude'
+  claudeModel: string
+  /** When Claude fails before answering (offline, limit, bad key), Ollama answers instead. */
+  claudeFallback: boolean
   ollamaUrl: string
   /** Empty means: pick a sensible installed model on first use. */
   model: string
@@ -78,6 +83,9 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  brain: 'ollama',
+  claudeModel: 'claude-haiku-5-5',
+  claudeFallback: true,
   ollamaUrl: 'http://127.0.0.1:11434',
   model: 'qwen3.6:35b-a3b',
   voiceEnabled: true,
@@ -162,4 +170,11 @@ export interface MemorySnapshot {
     type: string
     links: { id: number; text: string }[]
   }[]
+}
+
+/** What the settings window shows about Claude (never the key itself). */
+export interface BrainStatus {
+  keySet: boolean
+  /** Why Claude last failed, if the latest try did. */
+  lastProblem: string | null
 }

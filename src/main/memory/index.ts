@@ -16,7 +16,8 @@ import {
   type Extraction
 } from '../../shared/memory'
 import type { MemorySnapshot, MemoryStats, Settings } from '../../shared/types'
-import { chatOnce, embed } from '../ollama'
+import type { Brain } from '../brain'
+import { embed } from '../ollama'
 import { MemoryStore, type Fact, type StoredMessage } from './db'
 
 /** How long Poppy must be quiet before he reflects, and how often at most. */
@@ -62,11 +63,66 @@ export interface MemoryDeps {
   settings: () => Settings
   /** True while Poppy is answering or speaking: learning waits for quiet. */
   busy: () => boolean
+  /** The same brain as the chat (Claude or Ollama); embeddings always use Ollama. */
+  brain: Brain
+}
+
+// JSON shapes for the learner. Claude follows them exactly; Ollama gets JSON mode and the prompt.
+const LEARN_SCHEMA = {
+  type: 'object',
+  properties: {
+    facts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { text: { type: 'string' }, kind: { type: 'string', enum: ['about', 'preference', 'project', 'other'] } },
+        required: ['text', 'kind'],
+        additionalProperties: false
+      }
+    },
+    entities: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['person', 'organization', 'project', 'place', 'thing', 'topic'] }
+        },
+        required: ['name', 'type'],
+        additionalProperties: false
+      }
+    },
+    relations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { from: { type: 'string' }, type: { type: 'string' }, to: { type: 'string' } },
+        required: ['from', 'type', 'to'],
+        additionalProperties: false
+      }
+    },
+    outdated: { type: 'array', items: { type: 'integer' } },
+    lesson: { anyOf: [{ type: 'string' }, { type: 'null' }] }
+  },
+  required: ['facts', 'entities', 'relations', 'outdated', 'lesson'],
+  additionalProperties: false
+}
+const LESSON_SCHEMA = {
+  type: 'object',
+  properties: { lesson: { anyOf: [{ type: 'string' }, { type: 'null' }] } },
+  required: ['lesson'],
+  additionalProperties: false
+}
+const NOTEBOOK_SCHEMA = {
+  type: 'object',
+  properties: { rules: { type: 'array', items: { type: 'string' } } },
+  required: ['rules'],
+  additionalProperties: false
 }
 
 /**
  * Poppy's memory loop: recall before a reply, learn after it, take feedback, and reflect when quiet.
- * Everything runs on the user's own Ollama and is stored in Poppy's own database.
+ * The thinking runs on Poppy's brain (Claude or Ollama); everything is stored in Poppy's own database on this Mac.
  */
 export class Memory {
   readonly store: MemoryStore
@@ -238,23 +294,8 @@ export class Memory {
     return this.store.forgetFromMessages(recent)
   }
 
-  private learnerModel(): string {
-    return this.deps.settings().model
-  }
-
-  private async askJson(system: string, user: string, maxTokens: number): Promise<string> {
-    const s = this.deps.settings()
-    return chatOnce(
-      s.ollamaUrl,
-      this.learnerModel(),
-      [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      AbortSignal.timeout(LEARN_TIMEOUT_MS),
-      { temperature: 0, num_predict: maxTokens },
-      { format: 'json' }
-    )
+  private askJson(system: string, user: string, maxTokens: number, schema: Record<string, unknown>): Promise<string> {
+    return this.deps.brain.ask(system, user, { maxTokens, schema, temperature: 0, signal: AbortSignal.timeout(LEARN_TIMEOUT_MS) })
   }
 
   private async learn(replyId: number): Promise<void> {
@@ -277,7 +318,7 @@ export class Memory {
     ]
       .filter(Boolean)
       .join('\n\n')
-    const raw = await this.askJson(LEARN_PROMPT, prompt, 700)
+    const raw = await this.askJson(LEARN_PROMPT, prompt, 700, LEARN_SCHEMA)
     const found = parseExtraction(raw, related.map((f) => f.id))
     await this.save(found, asked.id)
     this.store.markLearned(replyId)
@@ -336,7 +377,7 @@ Poppy answered:
 """
 ${clip(parseReply(reply.content).text, 1500)}
 """`
-    const raw = await this.askJson(FEEDBACK_PROMPT, prompt, 120)
+    const raw = await this.askJson(FEEDBACK_PROMPT, prompt, 120, LESSON_SCHEMA)
     const data = firstJsonObject(raw) as { lesson?: unknown } | null
     const lesson = typeof data?.lesson === 'string' ? data.lesson.replace(/\s+/g, ' ').trim().slice(0, 200) : ''
     if (lesson.length < 8) return
@@ -417,7 +458,8 @@ ${clip(parseReply(reply.content).text, 1500)}
         const raw = await this.askJson(
           NOTEBOOK_PROMPT,
           `Lessons, oldest first:\n${lessons.map((l) => `- ${l.text}`).join('\n')}\n\nRatings so far: ${good} good, ${notQuite} not quite.`,
-          500
+          500,
+          NOTEBOOK_SCHEMA
         )
         const rules = parseNotebook(raw)
         if (rules.length) {

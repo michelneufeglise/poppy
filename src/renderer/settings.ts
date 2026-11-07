@@ -1,4 +1,4 @@
-import { KOKORO_VOICES, type KokoroStatus, type MemoryStats, type Settings } from '../shared/types'
+import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings } from '../shared/types'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -22,6 +22,14 @@ const dutchVoice = $<HTMLSelectElement>('dutch-voice')
 const memoryOn = $<HTMLInputElement>('memory-on')
 const embedModel = $<HTMLSelectElement>('embed')
 const memoryStatus = $<HTMLParagraphElement>('memory-status')
+const brainSel = $<HTMLSelectElement>('brain')
+const claudeBox = $<HTMLDivElement>('claude-box')
+const claudeKey = $<HTMLInputElement>('claude-key')
+const keyStatus = $<HTMLParagraphElement>('key-status')
+const removeKey = $<HTMLButtonElement>('remove-key')
+const claudeModel = $<HTMLSelectElement>('claude-model')
+const fallback = $<HTMLInputElement>('fallback')
+let claude: BrainStatus & { masked: string | null } = { keySet: false, lastProblem: null, masked: null }
 
 let settings: Settings
 
@@ -81,6 +89,10 @@ function showKokoroStatus(st: KokoroStatus): void {
 }
 
 function render(): void {
+  brainSel.value = settings.brain
+  claudeBox.hidden = settings.brain !== 'claude'
+  fallback.checked = settings.claudeFallback
+  if (document.activeElement !== claudeModel && claudeModel.options.length) claudeModel.value = settings.claudeModel
   url.value = settings.ollamaUrl
   voiceOn.checked = settings.voiceEnabled
   for (const el of [voice, long, engine, kokoroVoice, kokoroSpeed, dutchVoice, rate]) el.disabled = !settings.voiceEnabled
@@ -127,6 +139,43 @@ function showMemoryStats(st: MemoryStats | null): void {
   memoryStatus.className = st.embeddings === 'missing' ? 'hint error' : 'hint'
 }
 
+function showClaude(st: typeof claude, note?: { ok: boolean; message: string }): void {
+  claude = st
+  removeKey.hidden = !st.keySet
+  claudeKey.placeholder = st.masked ?? 'sk-ant-…'
+  let text: string
+  let cls = 'hint'
+  if (note) {
+    text = note.message
+    cls = note.ok ? 'hint ok' : 'hint error'
+  } else if (!st.keySet) {
+    text = 'No key yet: Poppy uses Ollama until you add one.'
+  } else if (st.lastProblem) {
+    text = `Key saved (${st.masked}). Last time Claude didn't answer: ${st.lastProblem}.`
+    cls = 'hint error'
+  } else text = `Key saved (${st.masked}).`
+  keyStatus.textContent = text
+  keyStatus.className = cls
+}
+
+async function loadClaudeModels(): Promise<void> {
+  const res = claude.keySet ? await api.listClaudeModels() : { ok: false, models: [], message: '' }
+  const models = res.models.length ? res.models : [settings.claudeModel]
+  if (!models.includes(settings.claudeModel)) models.unshift(settings.claudeModel)
+  claudeModel.replaceChildren(...models.map((m) => option(m, m)))
+  claudeModel.value = settings.claudeModel
+  if (!res.ok && res.message && claude.keySet) showClaude(claude, { ok: false, message: res.message })
+}
+
+async function saveKey(value: string): Promise<void> {
+  keyStatus.className = 'hint'
+  keyStatus.textContent = value ? 'Checking the key…' : 'Removing the key…'
+  const res = await api.setClaudeKey(value)
+  claudeKey.value = ''
+  showClaude(await api.claudeStatus(), res)
+  if (res.ok) await loadClaudeModels()
+}
+
 async function save(patch: Partial<Settings>): Promise<void> {
   settings = await api.setSettings(patch)
   render()
@@ -137,6 +186,17 @@ url.addEventListener('change', async () => {
   await loadModels()
 })
 model.addEventListener('change', () => save({ model: model.value }))
+brainSel.addEventListener('change', () => save({ brain: brainSel.value as Settings['brain'] }))
+claudeModel.addEventListener('change', () => save({ claudeModel: claudeModel.value }))
+fallback.addEventListener('change', () => save({ claudeFallback: fallback.checked }))
+$('save-key').addEventListener('click', () => {
+  if (claudeKey.value.trim()) void saveKey(claudeKey.value)
+})
+claudeKey.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && claudeKey.value.trim()) void saveKey(claudeKey.value)
+})
+removeKey.addEventListener('click', () => void saveKey(''))
+api.onClaudeStatus((st) => showClaude(st))
 $('refresh').addEventListener('click', () => loadModels())
 voiceOn.addEventListener('change', () => save({ voiceEnabled: voiceOn.checked }))
 voice.addEventListener('change', () => save({ voice: voice.value }))
@@ -172,7 +232,8 @@ api.onSettingsChanged((s) => {
 api.getSettings().then(async (s) => {
   settings = s
   render()
-  await Promise.all([loadModels(), loadVoices(), loadEmbedModels()])
+  showClaude(await api.claudeStatus())
+  await Promise.all([loadModels(), loadVoices(), loadEmbedModels(), loadClaudeModels()])
 })
 
 // No Mac title bar: the drawn × and Esc close the window.

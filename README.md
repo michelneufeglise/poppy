@@ -1,8 +1,8 @@
 # Poppy
 
-**A hand-drawn desk buddy for macOS that talks with your local Ollama models.**
+**A hand-drawn desk buddy for macOS that talks with your local Ollama models, or with Claude if you like.**
 
-Poppy is a small pencil-drawn character who sits on your desktop. Click him and a big comic speech balloon pops up above him: that's where you chat. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. And he keeps learning: he remembers what you tell him, builds a small map of the people and things in your life, and learns from your feedback how you like to be answered. Everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking.
+Poppy is a small pencil-drawn character who sits on your desktop. Click him and a big comic speech balloon pops up above him: that's where you chat. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. And he keeps learning: he remembers what you tell him, builds a small map of the people and things in your life, and learns from your feedback how you like to be answered. By default everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking. If you want quicker, smarter answers, you can give Poppy an Anthropic API key and he answers with Claude Haiku, with Ollama as the backup.
 
 ![Poppy on the desktop, the chat balloon and the settings window](docs/screenshots/overview.png)
 
@@ -17,6 +17,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - [Using Poppy](#using-poppy)
 - [Attachments](#attachments)
 - [Memory: how Poppy learns](#memory-how-poppy-learns)
+- [Claude as Poppy's brain (optional)](#claude-as-poppys-brain-optional)
 - [Voices and languages](#voices-and-languages)
 - [Settings](#settings)
 - [Privacy](#privacy)
@@ -30,7 +31,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 ## What Poppy can do
 
 - **Lives on your desktop.** A see-through, always-on-top window in the bottom-right corner. Drag him anywhere; he remembers the spot. Clicks go straight through to your desktop except on Poppy himself.
-- **Chats with your local model.** Replies stream in from Ollama, word by word.
+- **Chats with your local model.** Replies stream in from Ollama, word by word. Or, if you add an API key, from Claude, with Ollama taking over when Claude can't answer.
 - **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 12 poses, all hand-drawn.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
@@ -51,6 +52,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 | **Ollama** with at least one chat model | Yes | [ollama.com/download](https://ollama.com/download) |
 | **Python 3 + `kokoro-onnx`** | Optional | For the Kokoro English voice. Without it, Poppy uses a Mac voice. |
 | **`nomic-embed-text`** in Ollama | Recommended | For Poppy's memory search. Without it, memory still works but searches by keywords. |
+| **Anthropic API key** | Optional | To let Claude answer instead of Ollama. See [Claude as Poppy's brain](#claude-as-poppys-brain-optional). |
 
 **Which model?** Poppy's default is `qwen3.6:35b-a3b` (about 23 GB, needs a Mac with 32 GB of memory or more). It also understands pictures. On a smaller Mac, a small model works fine for chatting:
 
@@ -161,7 +163,21 @@ Your conversation is saved too, so after a restart the balloon shows where you l
 
 **You stay in control.** The **Memory** window (≡ menu → Memory…, or Settings → Open memory…) lists everything Poppy knows: facts about you, his notebook and lessons, and the people and things with their links. Click the × next to anything to delete it. **Tidy up now** runs the reflection straight away, and **Forget everything** wipes all chats and memories. **Learn from our chats** (in the Memory window and Settings) pauses learning; what he already knows is still used.
 
-Everything is stored in one file on your Mac: `~/Library/Application Support/poppy/memory.db`. Learning and recall use only your own Ollama.
+Everything is stored in one file on your Mac: `~/Library/Application Support/poppy/memory.db`. Learning runs on the same brain as the chat (Ollama, or Claude when that's switched on); memory search always uses your own Ollama.
+
+## Claude as Poppy's brain (optional)
+
+Poppy can answer with Claude (Haiku 5.5 by default) instead of your local model. Claude answers quickly, without the 10-second model load, and is better at hard questions. Ollama stays as the backup: when Claude can't answer (you're offline, a limit is hit, the key is wrong), Poppy quietly answers with Ollama.
+
+1. **Get an API key.** Sign in at [platform.claude.com](https://platform.claude.com) (formerly console.anthropic.com), add some credit under **Billing**, then open **API keys** and click **Create key**. The key starts with `sk-ant-`. This is a pay-as-you-go account; it's separate from a Claude Pro or Max subscription, which apps like Poppy can't use.
+2. **Give it to Poppy.** Settings → Brain → paste the key → **Save**. Poppy checks the key, saves it, and switches to Claude.
+3. **Switch back any time.** Settings → Brain → *Who answers* → **Ollama only**, or use the menu-bar icon (and the ≡ menu): **Claude** / **Ollama only**.
+
+**What it costs:** Haiku 5.5 costs $0.10 per million tokens in and $0.50 per million out. A chat reply plus the learning step is usually well under a tenth of a cent, so roughly a dollar per thousand chats. You can pick Sonnet or Opus in Settings for harder work; they cost more.
+
+**Your key:** stored encrypted with your Mac's Keychain (Electron's `safeStorage`), in `~/Library/Application Support/poppy/secrets.json`. It's never written to `settings.json`, never shown again in full, and only ever sent to `api.anthropic.com`. **Remove key** in Settings deletes it.
+
+**What goes to Anthropic** while Claude is the brain: your messages, attached files, the short memory note that goes with each message, and the exchanges Poppy learns from. Memory search (embeddings) and the voice stay on your Mac.
 
 ## Voices and languages
 
@@ -184,8 +200,12 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 
 | Setting | What it does |
 | --- | --- |
+| Who answers | **Claude, with Ollama as backup** or **Ollama only**. Default Ollama only. |
+| Anthropic API key | Your key for Claude. **Save** checks it first; **Remove key** deletes it. |
+| Claude model | Default `claude-haiku-5-5`. The list comes from your account. |
+| Use Ollama when Claude doesn't answer | The backup. On by default. |
 | Ollama address | Where Ollama runs. Default `http://127.0.0.1:11434`. |
-| Model | Which model Poppy uses. **Refresh** reloads the list. |
+| Ollama model | Which local model Poppy uses. **Refresh** reloads the list. |
 | Speak replies out loud | Voice on or off. |
 | Long replies | *Read the start, then a short spoken wrap-up* or *Read everything*. |
 | English voice engine | Kokoro or a Mac voice. |
@@ -201,11 +221,12 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 
 ## Privacy
 
-- **Everything stays on your Mac.** Poppy only talks to the Ollama address in Settings (your own computer by default).
+- **With Ollama only (the default), everything stays on your Mac.** Poppy only talks to the Ollama address in Settings (your own computer by default).
+- **With Claude switched on,** your messages, attached files, the memory note and the exchanges Poppy learns from go to Anthropic's API. See [Claude as Poppy's brain](#claude-as-poppys-brain-optional). Your API key is stored encrypted with the Mac's Keychain.
 - The only download is Kokoro's voice model from GitHub, once, on first start.
-- Files you attach are read on your Mac and sent only to your Ollama. Poppy only reads files you pick or drop yourself.
+- Files you attach are read on your Mac and sent only to Poppy's brain (your Ollama, or Claude when it's on). Poppy only reads files you pick or drop yourself.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
-- No analytics, no telemetry, no accounts.
+- No analytics, no telemetry, and no accounts unless you add a Claude key yourself.
 
 ## Troubleshooting
 
@@ -219,6 +240,8 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 | The first reply is slow | Normal: Ollama is loading the model. Next replies are fast. |
 | Poppy is gone | Menu-bar icon → Show Poppy, or Reset position. |
 | Settings says the memory search model isn't installed | Run `ollama pull nomic-embed-text`. Until then Poppy searches his memory by keywords. |
+| Settings says the API key didn't work | Check that you copied the whole key (it starts with `sk-ant-`) and that your account at platform.claude.com has credit. |
+| Settings says "Last time Claude didn't answer" | Poppy used Ollama for that reply. The reason is shown (offline, a limit, no credit…). It clears after the next good Claude reply. |
 | Poppy remembered something wrong | Open the Memory window and click the × next to it, or say "forget that" right after. |
 
 ## For developers
@@ -235,6 +258,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npm run build` | Build into `out/` |
 | `npx electron .` | Start the built app |
 | `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
+| `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
 | `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's poses from the emotion sheet |
@@ -246,7 +270,10 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 src/
   main/        Electron main process
     index.ts       windows, menu-bar icon, chat flow, IPC
-    ollama.ts      Ollama client (streaming chat, model list, image support check)
+    brain.ts       who answers: Claude with the Ollama backup, or Ollama only
+    claude.ts      Claude client (@anthropic-ai/sdk: streaming, JSON answers, model list)
+    secrets.ts     the API key, encrypted with the Keychain (safeStorage)
+    ollama.ts      Ollama client (streaming chat, model list, image support check, embeddings)
     voice.ts       speech queue: Kokoro WAVs through afplay, or the Mac's say
     kokoro.ts      talks to the Kokoro helper process
     summary.ts     spoken wrap-up for long replies
@@ -255,7 +282,7 @@ src/
     settings.ts    settings.json
   preload/     the window.poppy bridge
   renderer/    the Poppy window (with the chat balloon), the settings window and the memory window
-  shared/      types and pure logic (mood tags, speech text, attachment rules, memory)
+  shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
 scripts/
@@ -279,7 +306,7 @@ The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see
 
 ### How a reply works
 
-1. Your message (plus any files) goes to Ollama with a short system prompt that asks the model to start with a mood tag like `[happy]`, plus what Poppy remembers that fits.
+1. Your message (plus any files) goes to Poppy's brain (Ollama, or Claude with Ollama as the backup) with a short system prompt that asks the model to start with a mood tag like `[happy]`, plus what Poppy remembers that fits.
 2. The reply streams in. Poppy strips the mood tag, any `<think>` blocks, markdown and emoji for the bubble, and switches to the mood's drawing.
 3. Finished sentences go to the speech queue straight away. Kokoro renders two sentences ahead, so there are no gaps between them.
 4. When he's done talking, the exchange is saved and Poppy learns from it in the background.

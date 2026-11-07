@@ -15,7 +15,10 @@ import { DEFAULT_SETTINGS, type ChatError, type ChatUpdate, type PastMessage, ty
 import { addFiles, forget, loadFiles } from './attachments'
 import { Memory } from './memory'
 import { Kokoro } from './kokoro'
-import { canSee, listEmbedModels, listModels, OllamaError, pickDefaultModel, streamChat, type ChatMessage } from './ollama'
+import { Brain, BrainError } from './brain'
+import { claudeProblem, listClaudeModels } from './claude'
+import { listEmbedModels, listModels, OllamaError, type ChatMessage } from './ollama'
+import { getApiKey, maskedApiKey, setApiKey } from './secrets'
 import { getSettings, onSettingsChanged, updateSettings } from './settings'
 import { spokenWrapUp } from './summary'
 import { listVoices, Voice, type Speech } from './voice'
@@ -38,6 +41,7 @@ let buddy: BrowserWindow | null = null
 let settingsWin: BrowserWindow | null = null
 let memoryWin: BrowserWindow | null = null
 let tray: Tray | null = null
+const brain = new Brain(getSettings, (patch) => setSettings(patch))
 const kokoro = new Kokoro()
 const voice = new Voice(kokoro)
 let lastLang: SpeechLang = 'en'
@@ -210,6 +214,27 @@ function createTray(): void {
   updateTrayMenu()
 }
 
+/** Brain choice for the menus: Claude (when there's a key) or Ollama only. */
+function brainMenu(s: Settings): Electron.MenuItemConstructorOptions[] {
+  const hasKey = !!getApiKey()
+  const claude = s.claudeModel.replace(/^claude-/, '').replace(/-(\d+)-(\d+)$/, ' $1.$2')
+  return [
+    {
+      label: `Claude (${claude})${hasKey ? '' : ': add a key in Settings'}`,
+      type: 'radio',
+      checked: s.brain === 'claude' && hasKey,
+      enabled: hasKey,
+      click: () => setSettings({ brain: 'claude' })
+    },
+    {
+      label: `Ollama only (${s.model || 'picked automatically'})`,
+      type: 'radio',
+      checked: s.brain !== 'claude' || !hasKey,
+      click: () => setSettings({ brain: 'ollama' })
+    }
+  ]
+}
+
 function updateTrayMenu(): void {
   if (!tray) return
   const s = getSettings()
@@ -232,7 +257,7 @@ function updateTrayMenu(): void {
         checked: s.voiceEnabled,
         click: (item) => setSettings({ voiceEnabled: item.checked })
       },
-      { label: `Model: ${s.model || 'picked automatically'}`, enabled: false },
+      ...brainMenu(s),
       { label: 'Settings…', click: openSettings },
       { label: 'Memory…', click: openMemory },
       {
@@ -283,7 +308,7 @@ function stopReply(): void {
 class PoppyError extends Error {}
 
 function friendlyError(err: unknown, model: string): string {
-  if (err instanceof PoppyError) return err.message
+  if (err instanceof PoppyError || err instanceof BrainError) return err.message
   const msg = err instanceof Error ? err.message : String(err)
   if (/fetch failed|ECONNREFUSED|ENOTFOUND/i.test(msg) || (err as { cause?: unknown })?.cause)
     return "I can't reach Ollama. Is it running?"
@@ -307,7 +332,6 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
   const ctrl = new AbortController()
   current = ctrl
   const s = getSettings()
-  let model = s.model
   let userMsgId: number | null = null
   chatBusy = true
   memory?.touch()
@@ -326,19 +350,10 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
       await replyDirect(id, answer, 'happy')
       return
     }
-    // No model chosen yet, or still the default but it isn't installed here: use the best one that is.
-    const defaultMissing = model === DEFAULT_SETTINGS.model && !(await listModels(s.ollamaUrl)).includes(model)
-    if (!model || defaultMissing) {
-      model = await pickDefaultModel(s.ollamaUrl)
-      setSettings({ model })
-    }
     // Attached files: text goes into the message (and stays in the history); images only go
     // along with this one message, so later replies stay fast.
     const loaded = attachmentIds.length ? await loadFiles(attachmentIds) : { files: [], images: [] }
     forget(attachmentIds)
-    if (loaded.images.length && !(await canSee(s.ollamaUrl, model))) {
-      throw new PoppyError(`My model ${model} can't look at pictures. Pick one that can, like qwen3.6:35b-a3b, in settings.`)
-    }
     if (id !== replyId) return
     const content = loaded.files.length ? composeMessage(text, loaded.files) : text
     history.push({ role: 'user', content })
@@ -378,7 +393,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     if (loaded.images.length) messages[messages.length - 1] = { ...messages.at(-1)!, images: loaded.images }
     const chars = messages.reduce((n, m) => n + m.content.length, 0)
     const numCtx = contextSize(chars, loaded.images.length)
-    for await (const chunk of streamChat(s.ollamaUrl, model, messages, ctrl.signal, numCtx)) {
+    for await (const chunk of brain.stream(messages, { signal: ctrl.signal, numCtx })) {
       if (id !== replyId) return
       raw += chunk
       reply = parseReply(raw)
@@ -406,8 +421,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
           for (const part of held) voice.speak(speechFor(part, lang, s))
         } else {
           const wrap = await spokenWrapUp({
-            baseUrl: s.ollamaUrl,
-            model,
+            brain,
             said: said.join(' '),
             rest,
             lang,
@@ -427,7 +441,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     if (history.at(-1)?.role === 'user') history.pop()
     if (userMsgId) memory?.store.deleteMessage(userMsgId)
     console.error('chat failed', err)
-    sendBuddy('chat:error', { id, message: friendlyError(err, model) } satisfies ChatError)
+    sendBuddy('chat:error', { id, message: friendlyError(err, brain.lastModel || s.model) } satisfies ChatError)
   } finally {
     if (current === ctrl) current = null
     if (id === replyId) chatBusy = false
@@ -439,7 +453,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
 
 function startMemory(): void {
   try {
-    memory = new Memory({ file: join(app.getPath('userData'), 'memory.db'), settings: getSettings, busy: () => chatBusy })
+    memory = new Memory({ file: join(app.getPath('userData'), 'memory.db'), settings: getSettings, busy: () => chatBusy, brain })
   } catch (err) {
     console.error('Memory could not start; Poppy carries on without it.', err)
     return
@@ -514,6 +528,9 @@ function registerIpc(): void {
       { label: 'Attach file…', click: () => sendBuddy('ui:attach') },
       { type: 'separator' },
       { label: 'Voice', type: 'checkbox', checked: s.voiceEnabled, click: (item) => setSettings({ voiceEnabled: item.checked }) },
+      { type: 'separator' },
+      ...brainMenu(s),
+      { type: 'separator' },
       { label: 'Settings…', click: openSettings },
       { label: 'Memory…', click: openMemory },
       { type: 'separator' },
@@ -577,6 +594,36 @@ function registerIpc(): void {
   ipcMain.on('settings:open', () => openSettings())
   ipcMain.on('settings:close', () => settingsWin?.close())
   ipcMain.handle('ollama:models', async (_e, url?: string) => listModels(url || getSettings().ollamaUrl))
+  // Claude: the key goes from the settings page to main once and is never sent back.
+  ipcMain.handle('claude:status', () => ({ ...brain.status(), masked: maskedApiKey() }))
+  ipcMain.handle('claude:set-key', async (_e, value: string) => {
+    const clean = String(value ?? '').trim()
+    if (clean) {
+      try {
+        await listClaudeModels(clean)
+      } catch (err) {
+        return { ok: false, message: `That key didn't work: ${claudeProblem(err)}.` }
+      }
+    }
+    try {
+      setApiKey(clean)
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err) }
+    }
+    // A new key means the user wants Claude; removing it goes back to Ollama only.
+    setSettings({ brain: clean ? 'claude' : 'ollama' })
+    sendAll('claude:status', { ...brain.status(), masked: maskedApiKey() })
+    return { ok: true, message: clean ? 'Key saved. Poppy now answers with Claude.' : 'Key removed. Poppy uses Ollama only.' }
+  })
+  ipcMain.handle('claude:models', async () => {
+    const key = getApiKey()
+    if (!key) return { ok: false, models: [], message: 'No API key yet.' }
+    try {
+      return { ok: true, models: await listClaudeModels(key), message: '' }
+    } catch (err) {
+      return { ok: false, models: [], message: `Claude: ${claudeProblem(err)}.` }
+    }
+  })
   ipcMain.handle('voice:list', () => listVoices())
   ipcMain.handle('voice:kokoro-status', () => kokoro.status)
   ipcMain.on('voice:test', (_e, lang: SpeechLang) => {
@@ -604,6 +651,7 @@ if (!app.requestSingleInstanceLock()) {
     kokoro.on('status', (status) => sendAll('voice:kokoro-status', status))
     warmKokoro(getSettings())
     startMemory()
+    brain.onStatus(() => sendAll('claude:status', { ...brain.status(), masked: maskedApiKey() }))
     onSettingsChanged((s) => {
       sendAll('settings:changed', s)
       updateTrayMenu()

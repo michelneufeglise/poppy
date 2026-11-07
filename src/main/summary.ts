@@ -1,7 +1,7 @@
 import { parseReply } from '../shared/reply'
 import { tidySummary, SUMMARY_CAP_WORDS } from '../shared/speech'
 import type { SpeechLang } from '../shared/types'
-import { chatOnce } from './ollama'
+import type { Brain } from './brain'
 
 /** If the wrap-up takes longer than this, Poppy says the fallback line instead. */
 const TIMEOUT_MS = 8000
@@ -23,8 +23,7 @@ Rules:
 
 /** A short spoken version of the part Poppy didn't read out. Never throws. */
 export async function spokenWrapUp(opts: {
-  baseUrl: string
-  model: string
+  brain: Brain
   said: string
   rest: string
   lang: SpeechLang
@@ -33,16 +32,11 @@ export async function spokenWrapUp(opts: {
   const langName = opts.lang === 'nl' ? 'Dutch' : 'English'
   const user = `Already said out loud:\n"""\n${opts.said}\n"""\n\nThe rest of the written answer:\n"""\n${opts.rest.slice(0, 9000)}\n"""\n\nSpoken wrap-up, in ${langName}:`
   try {
-    const raw = await chatOnce(
-      opts.baseUrl,
-      opts.model,
-      [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: user }
-      ],
-      AbortSignal.any([opts.signal, AbortSignal.timeout(TIMEOUT_MS)]),
-      { temperature: 0.2, top_p: 0.9, num_predict: 120 }
-    )
+    const raw = await opts.brain.ask(SYSTEM, user, {
+      maxTokens: 120,
+      temperature: 0.2,
+      signal: AbortSignal.any([opts.signal, AbortSignal.timeout(TIMEOUT_MS)])
+    })
     return tidySummary(parseReply(raw).text) || FALLBACK[opts.lang]
   } catch (err) {
     if (opts.signal.aborted) return ''

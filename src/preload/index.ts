@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type {
   AttachResult,
+  BrainStatus,
   ChatError,
   ChatUpdate,
   KokoroStatus,
@@ -11,6 +12,8 @@ import type {
   SpeechLang,
   VoiceInfo
 } from '../shared/types'
+
+type ClaudeStatus = BrainStatus & { masked: string | null }
 
 function on<T>(channel: string, cb: (value: T) => void): () => void {
   const handler = (_e: IpcRendererEvent, value: T): void => cb(value)
@@ -71,6 +74,11 @@ const api = {
   openSettings: () => ipcRenderer.send('settings:open'),
   closeSettings: () => ipcRenderer.send('settings:close'),
   listModels: (url?: string) => ipcRenderer.invoke('ollama:models', url) as Promise<string[]>,
+  // Claude: the key only ever goes one way, from this page to main.
+  claudeStatus: () => ipcRenderer.invoke('claude:status') as Promise<ClaudeStatus>,
+  setClaudeKey: (key: string) => ipcRenderer.invoke('claude:set-key', key) as Promise<{ ok: boolean; message: string }>,
+  listClaudeModels: () => ipcRenderer.invoke('claude:models') as Promise<{ ok: boolean; models: string[]; message: string }>,
+  onClaudeStatus: (cb: (s: ClaudeStatus) => void) => on('claude:status', cb),
   listVoices: () => ipcRenderer.invoke('voice:list') as Promise<VoiceInfo[]>,
   testVoice: (lang: SpeechLang) => ipcRenderer.send('voice:test', lang),
   getKokoroStatus: () => ipcRenderer.invoke('voice:kokoro-status') as Promise<KokoroStatus>,

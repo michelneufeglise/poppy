@@ -26,9 +26,29 @@
         <h1>Settings</h1>
         <section>
           <h2>Brain</h2>
+          <label for="brain">Who answers</label>
+          <span class="field select">
+            <select id="brain">
+              <option value="claude">Claude, with Ollama as backup</option>
+              <option value="ollama">Ollama only (everything stays on this Mac)</option>
+            </select>
+          </span>
+          <div id="claude-box" class="group">
+            <label for="claude-key">Anthropic API key</label>
+            <div class="row">
+              <span class="field"><input id="claude-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…" /></span>
+              <button id="save-key" class="btn" type="button">Save</button>
+            </div>
+            <p id="key-status" class="hint"></p>
+            <button id="remove-key" class="btn" type="button" hidden>Remove key</button>
+            <label for="claude-model">Claude model</label>
+            <span class="field select"><select id="claude-model"></select></span>
+            <label class="check"><input id="fallback" type="checkbox" /> Use Ollama when Claude doesn't answer</label>
+            <p class="hint">Get a key at platform.claude.com, under API keys. With Claude, your messages, files and what Poppy learns from them go to Anthropic. Memory search stays on Ollama.</p>
+          </div>
           <label for="url">Ollama address</label>
           <span class="field"><input id="url" type="url" spellcheck="false" /></span>
-          <label for="model">Model</label>
+          <label for="model">Ollama model</label>
           <div class="row">
             <span class="field select"><select id="model"></select></span>
             <button id="refresh" class="btn" type="button">Refresh</button>
@@ -86,7 +106,7 @@
         <section>
           <h2>Memory</h2>
           <label class="check"><input id="memory-on" type="checkbox" /> Learn from our chats</label>
-          <p class="hint">Poppy remembers facts about you, the people and things you mention, and how you like to be answered. Everything stays on this Mac.</p>
+          <p class="hint">Poppy remembers facts about you, the people and things you mention, and how you like to be answered. It's saved on this Mac. When Claude is the brain, learning runs on Claude too.</p>
           <label for="embed">Memory search model</label>
           <div class="row">
             <span class="field select"><select id="embed"></select></span>
