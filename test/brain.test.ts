@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { claudeChatModels, quickThinking, shouldFallBack, toClaudeRequest } from '../src/shared/brain'
+import { claudeChatModels, quickThinking, shouldFallBack, startsLikeRepeat, toClaudeRequest, todayNote } from '../src/shared/brain'
 
 describe('building a Claude request', () => {
   it('moves the system prompt out, merges turns and starts with the user', () => {
@@ -51,5 +51,20 @@ describe('falling back to Ollama', () => {
     expect(shouldFallBack({ ...base, aborted: true })).toBe(false)
     expect(shouldFallBack({ ...base, gotText: true })).toBe(false)
     expect(shouldFallBack({ ...base, fallbackEnabled: false })).toBe(false)
+  })
+})
+
+describe('date and repeats', () => {
+  it('tells the model the date and time', () => {
+    expect(todayNote(new Date('2026-11-07T17:36:00Z'), 'Europe/Amsterdam')).toBe('Today is Saturday 7 November 2026, 18:36 (Europe/Amsterdam).')
+  })
+
+  it('notices a reply that starts as a copy of the previous one', () => {
+    const before =
+      "[surprised] Oh, I actually do have a weather tool! Let me check that for you right now.\n\n[cheerful] Tomorrow in Utrecht will be foggy."
+    expect(startsLikeRepeat(before, '[surprised] Oh, I actually do have a weather tool! Let me check that for you')).toBe(true)
+    expect(startsLikeRepeat(before, '[thinking] The midterms: Democrats won control of both the House and the Senate.')).toBe(false)
+    // Short previous replies ("Hi Michel!") are never treated as copies.
+    expect(startsLikeRepeat('[hello] Hi Michel!', '[hello] Hi Michel!')).toBe(false)
   })
 })

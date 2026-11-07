@@ -92,3 +92,30 @@ export interface FailureInfo {
 export function shouldFallBack(f: FailureInfo): boolean {
   return f.fallbackEnabled && !f.aborted && !f.gotText && !f.refused
 }
+
+/** "Today is Saturday 7 November 2026, 18:36 (Europe/Amsterdam)." The model doesn't know the date by itself. */
+export function todayNote(now: Date, timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
+  const date = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone }).format(now)
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone }).format(now)
+  return `Today is ${date.replace(',', '')}, ${time} (${timeZone}).`
+}
+
+/** Text for comparing replies: no mood tags, no thinking, lowercase, single spaces. */
+export function comparable(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/\[[a-z-]+\]/gi, ' ')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** How much of a new reply is compared with the previous one before it's shown. */
+export const REPEAT_CHECK_CHARS = 60
+
+/** The new reply starts exactly like the previous reply: the model is copying its last answer. */
+export function startsLikeRepeat(previous: string, current: string, min = REPEAT_CHECK_CHARS): boolean {
+  const prev = comparable(previous)
+  const cur = comparable(current)
+  return prev.length >= min && cur.length >= Math.min(min, prev.length) && prev.startsWith(cur.slice(0, min))
+}

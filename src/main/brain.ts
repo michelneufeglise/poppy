@@ -1,4 +1,4 @@
-import { CUT_SHORT_NOTE, HISTORY_TOOL_CHARS, shouldFallBack, type BrainMessage } from '../shared/brain'
+import { CUT_SHORT_NOTE, HISTORY_TOOL_CHARS, REPEAT_CHECK_CHARS, comparable, shouldFallBack, startsLikeRepeat, type BrainMessage } from '../shared/brain'
 import { DEFAULT_SETTINGS, type BrainStatus, type Settings } from '../shared/types'
 import { askClaude, claudeProblem, ClaudeRefusal, streamClaude } from './claude'
 import { callArguments, toOllamaTools, type OllamaToolCall, type ToolInfo } from '../shared/tools'
@@ -149,19 +149,66 @@ export class Brain {
     // until it answers without calling any, or the rounds run out and it must answer without tools.
     const offered = toOllamaTools(tools.list)
     const convo: ChatMessage[] = messages.map((m) => ({ ...m }))
+    // The model sometimes copies its previous answer word for word instead of answering the new
+    // question. The start of the reply is held back until it's clear it isn't such a copy.
+    const previous = [...messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())?.content ?? ''
+    const question = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
+    let nudged = false
     let wroteSomething = false
     for (let round = 0; round <= tools.rounds; round++) {
       const last = round === tools.rounds
       let text = ''
+      let held = ''
+      let checked = wroteSomething || !previous
+      let copying = false
       const calls: OllamaToolCall[] = []
-      for await (const part of streamChatParts(s.ollamaUrl, model, convo, opts.signal, opts.numCtx, last ? undefined : offered, last ? undefined : TOOL_TEMPERATURE)) {
-        if (part.text) {
-          if (!text && wroteSomething) yield '\n\n'
-          text += part.text
-          wroteSomething = true
-          yield part.text
+      const roundCtrl = new AbortController()
+      const signal = AbortSignal.any([opts.signal, roundCtrl.signal])
+      try {
+        for await (const part of streamChatParts(s.ollamaUrl, model, convo, signal, opts.numCtx, last ? undefined : offered, last ? undefined : TOOL_TEMPERATURE)) {
+          if (part.text) {
+            text += part.text
+            let out = part.text
+            if (!checked) {
+              held += part.text
+              out = ''
+              if (comparable(held).length >= REPEAT_CHECK_CHARS) {
+                checked = true
+                if (!nudged && startsLikeRepeat(previous, held)) {
+                  copying = true
+                  roundCtrl.abort()
+                  break
+                }
+                out = held
+              }
+            }
+            if (out) {
+              // A later round's text starts on a new paragraph.
+              if (wroteSomething && text === out) yield '\n\n'
+              wroteSomething = true
+              yield out
+            }
+          }
+          if (part.toolCalls) calls.push(...part.toolCalls)
         }
-        if (part.toolCalls) calls.push(...part.toolCalls)
+      } catch (err) {
+        if (opts.signal.aborted || !roundCtrl.signal.aborted) throw err
+      }
+      if (copying) {
+        console.warn('[brain] the reply started as a copy of the previous one; asking again')
+        nudged = true
+        convo.push({
+          role: 'system',
+          content: `You started to repeat your previous answer word for word. Don't. Answer the user's latest message instead: "${question.slice(0, 500)}"`
+        })
+        round--
+        continue
+      }
+      // A short reply that never reached the check is shown now.
+      if (!checked && held) {
+        if (wroteSomething) yield '\n\n'
+        wroteSomething = true
+        yield held
       }
       if (!calls.length) return
       convo.push({ role: 'assistant', content: text, tool_calls: calls })

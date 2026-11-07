@@ -11,8 +11,8 @@ import {
   speechView,
   wordCount
 } from '../shared/speech'
-import { ASK_TIMEOUT_MS, describeCall, needsAsk, type ToolInfo } from '../shared/tools'
-import { trimHistory, type BrainMessage } from '../shared/brain'
+import { ASK_TIMEOUT_MS, describeCall, needsAsk, toolRules, type ToolInfo } from '../shared/tools'
+import { todayNote, trimHistory, type BrainMessage } from '../shared/brain'
 import {
   DEFAULT_SETTINGS,
   type ChatError,
@@ -503,7 +503,8 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     }
 
     const tools = chatTools(id, s)
-    const messages: BrainMessage[] = [{ role: 'system', content: SYSTEM_PROMPT + (tools ? TOOLS_PROMPT : '') + note }, ...history]
+    const toolsText = tools ? `${TOOLS_PROMPT}\n${toolRules(tools.list.map((t) => t.name))}` : ''
+    const messages: BrainMessage[] = [{ role: 'system', content: `${SYSTEM_PROMPT}\n\n${todayNote(new Date())}${toolsText}${note}` }, ...history]
     if (loaded.images.length) messages[messages.length - 1] = { ...messages.at(-1)!, images: loaded.images }
     const chars = messages.reduce((n, m) => n + m.content.length, 0)
     const numCtx = contextSize(chars, loaded.images.length)

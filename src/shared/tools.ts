@@ -201,3 +201,17 @@ export function toolResultText(result: { content?: unknown; isError?: unknown; s
   if (text.length > MAX_TOOL_RESULT_CHARS) text = `${text.slice(0, MAX_TOOL_RESULT_CHARS)}\n… (cut: the result was ${text.length} characters)`
   return result.isError === true ? `The tool reported an error: ${text}` : text
 }
+
+/** When to use which of the tools that are on (models skip tools when this is left vague). */
+export function toolRules(names: string[]): string {
+  const has = (n: string): boolean => names.includes(n)
+  const rules: string[] = []
+  if (has('web_search'))
+    rules.push(
+      "For news, current events, elections, sports, prices, or anything that may have changed recently, call web_search right away. Don't say you have no real-time information, and don't ask whether you should search. Base your answer on the results."
+    )
+  if (has('get_weather')) rules.push('For the weather, call get_weather.')
+  if (names.some((n) => n.startsWith('music_') || n === 'play_music')) rules.push("For music (play, pause, skip, what's playing), use the music tools.")
+  rules.push("Answer the user's latest message; earlier messages are only background.")
+  return rules.join('\n')
+}

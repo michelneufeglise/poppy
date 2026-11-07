@@ -8,6 +8,7 @@ import {
   parseToolsFile,
   toOllamaTools,
   toolResultText,
+  toolRules,
   uniqueNames,
   type ToolInfo
 } from '../src/shared/tools'
@@ -150,5 +151,17 @@ describe('tool turns in the history', () => {
 
   it('hides a made-up tag at the start of a later tool round', () => {
     expect(parseReply('[happy] Let me look.\n\n[calm] You have a dentist visit.').text).toBe('Let me look.\n\nYou have a dentist visit.')
+  })
+})
+
+describe('when to use which tool', () => {
+  it('only gives rules for the tools that are on', () => {
+    const all = toolRules(['web_search', 'web_fetch', 'get_weather', 'play_music'])
+    expect(all).toMatch(/call web_search right away/)
+    expect(all).toMatch(/get_weather/)
+    expect(all).toMatch(/music tools/)
+    const none = toolRules(['read_file'])
+    expect(none).not.toMatch(/web_search|get_weather|music/)
+    expect(none).toMatch(/latest message/)
   })
 })
