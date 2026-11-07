@@ -65,7 +65,12 @@ export const KOKORO_VOICES = [
 
 export type SpeechLang = 'en' | 'nl'
 
+/** Which Poppy: the male drawings (assets/states) or the female ones (assets/female/states). */
+export type Character = 'male' | 'female'
+
 export interface Settings {
+  /** Male or female Poppy: only the drawings change. */
+  character: Character
   /** Who answers: Claude (with an API key) or Ollama only. Memory search always stays on Ollama. */
   brain: 'ollama' | 'claude'
   claudeModel: string
@@ -103,6 +108,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  character: 'male',
   brain: 'ollama',
   claudeModel: 'claude-haiku-5-5',
   claudeFallback: true,

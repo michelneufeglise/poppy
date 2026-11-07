@@ -1,20 +1,26 @@
 import { MAX_FILES } from '../shared/attachments'
-import { STATES, type AttachmentInfo, type AttachResult, type Mood, type PoppyState } from '../shared/types'
+import { STATES, type AttachmentInfo, type AttachResult, type Character, type Mood, type PoppyState } from '../shared/types'
 
 const api = window.poppy
 
-// The user's own drawings, cut from the emotion sheet. Never redrawn.
-const urls = import.meta.glob('../../assets/states/*.png', { eager: true, import: 'default' }) as Record<
-  string,
-  string
->
-const urlFor = (s: PoppyState): string => urls[`../../assets/states/${s}.png`]
-// The state names, hand-lettered on the same sheet.
-const labelUrls = import.meta.glob('../../assets/chat/label-*.png', { eager: true, import: 'default' }) as Record<
-  string,
-  string
->
-const labelFor = (s: PoppyState): string => labelUrls[`../../assets/chat/label-${s}.png`]
+// The user's own drawings, cut from the emotion sheets. Never redrawn. Male Poppy in assets/states,
+// female Poppy in assets/female/states; the state names are hand-lettered on the same sheets.
+// (Vite needs the glob options written inline.)
+type Urls = Record<string, string>
+const urls: Record<Character, Urls> = {
+  male: import.meta.glob('../../assets/states/*.png', { eager: true, import: 'default' }) as Urls,
+  female: import.meta.glob('../../assets/female/states/*.png', { eager: true, import: 'default' }) as Urls
+}
+const labelUrls: Record<Character, Urls> = {
+  male: import.meta.glob('../../assets/chat/label-*.png', { eager: true, import: 'default' }) as Urls,
+  female: import.meta.glob('../../assets/female/chat/label-*.png', { eager: true, import: 'default' }) as Urls
+}
+let character: Character = 'male'
+const urlFor = (s: PoppyState): string =>
+  (character === 'female' && urls.female[`../../assets/female/states/${s}.png`]) || urls.male[`../../assets/states/${s}.png`]
+const labelFor = (s: PoppyState): string =>
+  (character === 'female' && labelUrls.female[`../../assets/female/chat/label-${s}.png`]) ||
+  labelUrls.male[`../../assets/chat/label-${s}.png`]
 const TWO_LINE_LABELS = new Set<PoppyState>(['sad-hello', 'bye', 'clapping'])
 const closeIcon = new URL('../../assets/chat/close.png', import.meta.url).href
 
@@ -44,15 +50,14 @@ function setText(el: HTMLElement, text: string): void {
 const imgs = {} as Record<PoppyState, HTMLImageElement>
 const masks = {} as Record<PoppyState, { w: number; h: number; alpha: Uint8ClampedArray } | undefined>
 
-for (const s of STATES) {
-  const frame = document.createElement('div')
-  frame.className = 'frame'
-  const img = document.createElement('img')
-  img.src = urlFor(s)
-  img.alt = ''
-  img.draggable = false
+/** Loads a drawing and keeps its transparency, so only Poppy himself (or herself) catches the mouse. */
+function load(s: PoppyState): void {
+  const img = imgs[s]
+  const src = urlFor(s)
+  if (img.src === new URL(src, location.href).href) return
+  img.src = src
   img.decode().then(() => {
-    // Keep each drawing's transparency so only Poppy itself catches the mouse.
+    if (img.src !== new URL(urlFor(s), location.href).href) return // switched again meanwhile
     const c = document.createElement('canvas')
     c.width = img.naturalWidth
     c.height = img.naturalHeight
@@ -60,10 +65,28 @@ for (const s of STATES) {
     ctx.drawImage(img, 0, 0)
     masks[s] = { w: c.width, h: c.height, alpha: ctx.getImageData(0, 0, c.width, c.height).data }
   })
+}
+
+for (const s of STATES) {
+  const frame = document.createElement('div')
+  frame.className = 'frame'
+  const img = document.createElement('img')
+  img.alt = ''
+  img.draggable = false
   frame.appendChild(img)
   poppy.appendChild(frame)
   imgs[s] = img
 }
+
+/** Male or female Poppy: swaps every drawing and the name under the current one. */
+function useCharacter(next: Character): void {
+  const first = !imgs.idle.src
+  if (next === character && !first) return
+  character = next
+  for (const s of STATES) load(s)
+  if (!first) label.src = labelFor(state)
+}
+useCharacter('male')
 
 // ---------- state ----------
 
@@ -628,8 +651,14 @@ api.chatHistory().then((past) => {
   for (const m of past) addMessage(m.role === 'user' ? 'you' : 'poppy', m.text)
 })
 
-api.getSettings().then((s) => (sleepAfterMs = s.sleepAfterMinutes * 60_000))
-api.onSettingsChanged((s) => (sleepAfterMs = s.sleepAfterMinutes * 60_000))
+api.getSettings().then((s) => {
+  sleepAfterMs = s.sleepAfterMinutes * 60_000
+  useCharacter(s.character)
+})
+api.onSettingsChanged((s) => {
+  sleepAfterMs = s.sleepAfterMinutes * 60_000
+  useCharacter(s.character)
+})
 
 // ---------- start ----------
 

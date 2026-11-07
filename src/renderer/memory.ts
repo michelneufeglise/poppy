@@ -1,4 +1,5 @@
 import type { MemorySnapshot, MemoryStats } from '../shared/types'
+import { followCharacterHeader } from './character'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -129,3 +130,5 @@ $('minimize').addEventListener('click', () => api.closeMemory())
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') api.closeMemory()
 })
+
+followCharacterHeader()

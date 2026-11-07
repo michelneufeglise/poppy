@@ -90,10 +90,10 @@ def cut(img: np.ndarray, paper: np.ndarray, box, zoom: float = 1.0) -> np.ndarra
     return canvas
 
 
-def tray_icons() -> None:
+def tray_icons(idle_png: Path = OUT / "idle.png", tray: Path = ROOT / "assets/tray") -> None:
     """Menu-bar icon: the idle drawing's silhouette as a macOS template image (black + alpha),
     with the drawing's own pupils cut out as holes so it reads as Poppy's face at 18 px."""
-    idle = cv2.imread(str(OUT / "idle.png"), cv2.IMREAD_UNCHANGED)
+    idle = cv2.imread(str(idle_png), cv2.IMREAD_UNCHANGED)
     ys, xs = np.where(idle[:, :, 3] > 0)
     idle = idle[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
     body = idle[:, :, 3].astype(np.float32) / 255
@@ -109,7 +109,6 @@ def tray_icons() -> None:
             eyes[labels == i] = 1
     # A little wider than the pupils, so the holes stay open after shrinking.
     eyes = cv2.dilate(eyes, np.ones((5, 5), np.uint8)).astype(np.float32)
-    tray = ROOT / "assets/tray"
     tray.mkdir(parents=True, exist_ok=True)
     for name, size in (("trayTemplate.png", 18), ("trayTemplate@2x.png", 36)):
         scale = size / max(h, w)

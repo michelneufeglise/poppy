@@ -33,11 +33,12 @@ The Poppy character and every drawing and picture in this repository are
 Copyright (c) 2026 Michel Neufeglise. All rights reserved.
 
 This covers:
-  - docs/design/       (the emotion sheet, the chat-window picture and sketches)
+  - docs/design/       (the emotion sheets, the chat-window picture and sketches)
   - docs/screenshots/  (screenshots, which show the drawings)
   - assets/states/     (Poppy's poses, cut from the emotion sheet)
   - assets/chat/       (the chat window pieces, cut from the chat-window picture)
   - assets/tray/       (the menu-bar icon, made from a drawing)
+  - assets/female/     (female Poppy: her poses, names, header and menu-bar icon)
 
 You may download and run Poppy with these drawings for your own personal use.
 You may not reuse, redistribute, modify or sell the drawings or the Poppy

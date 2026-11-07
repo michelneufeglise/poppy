@@ -56,8 +56,9 @@
     <div class="poppy" id="poppy"><div class="shadow"></div></div>
     <div class="bubble" id="bubble">Hi, I'm Poppy.</div>
   </div>
+  <div class="controls" id="who"><button data-c="male" class="on">Male Poppy</button><button data-c="female">Female Poppy</button></div>
   <div class="controls" id="controls"></div>
-  <p class="note">Every state is the original drawing from your emotion sheet (assets/states). Only whole-drawing motion is added: breathing, hops, tilts and a crossfade between states.</p>
+  <p class="note">Every state is the original drawing from your emotion sheets (male: assets/states, female: assets/female/states). Only whole-drawing motion is added: breathing, hops, tilts and a crossfade between states.</p>
 </main>
 <script>
   const STATES = [
@@ -114,12 +115,13 @@
   const bubble = document.getElementById("bubble");
   const controls = document.getElementById("controls");
   const imgs = {};
+  let dir = "../../assets/states";
   for (const [id] of STATES) {
     const wrap = document.createElement("div");
     wrap.className = "anim";
     wrap.style.cssText = "position:absolute;inset:0;transform-origin:50% 100%";
     const img = document.createElement("img");
-    img.src = `../../assets/states/${id}.png`;
+    img.src = `${dir}/${id}.png`;
     img.alt = `Poppy ${id}`;
     img.style.opacity = 0;
     wrap.appendChild(img);
@@ -143,6 +145,11 @@
     b.textContent = label; b.dataset.s = id; b.onclick = () => setState(id);
     controls.appendChild(b);
   }
+  document.querySelectorAll("#who button").forEach(b => b.onclick = () => {
+    dir = b.dataset.c === "female" ? "../../assets/female/states" : "../../assets/states";
+    for (const id in imgs) imgs[id].src = `${dir}/${id}.png`;
+    document.querySelectorAll("#who button").forEach(x => x.classList.toggle("on", x === b));
+  });
   setState("idle");
 </script>
 </body>

@@ -235,10 +235,29 @@ function showBuddy(): void {
 
 // ---------- tray ----------
 
-function createTray(): void {
-  const icon = nativeImage.createFromPath(join(app.getAppPath(), 'assets/tray/trayTemplate.png'))
+/** The menu-bar icon: the chosen Poppy's idle silhouette. */
+function trayIcon(s: Settings): Electron.NativeImage {
+  const dir = s.character === 'female' ? 'assets/female/tray' : 'assets/tray'
+  const icon = nativeImage.createFromPath(join(app.getAppPath(), dir, 'trayTemplate.png'))
   icon.setTemplateImage(true)
-  tray = new Tray(icon)
+  return icon
+}
+
+/** Male or female Poppy, for the menus. */
+function characterMenu(s: Settings): Electron.MenuItemConstructorOptions {
+  return {
+    label: 'Poppy',
+    submenu: (['male', 'female'] as const).map((c) => ({
+      label: c === 'male' ? 'Male Poppy' : 'Female Poppy',
+      type: 'radio' as const,
+      checked: s.character === c,
+      click: () => setSettings({ character: c })
+    }))
+  }
+}
+
+function createTray(): void {
+  tray = new Tray(trayIcon(getSettings()))
   tray.setToolTip('Poppy')
   updateTrayMenu()
 }
@@ -287,6 +306,7 @@ function updateTrayMenu(): void {
         click: (item) => setSettings({ voiceEnabled: item.checked })
       },
       ...brainMenu(s),
+      characterMenu(s),
       { label: 'Settings…', click: openSettings },
       { label: 'Memory…', click: openMemory },
       {
@@ -612,6 +632,7 @@ function registerIpc(): void {
       { label: 'Voice', type: 'checkbox', checked: s.voiceEnabled, click: (item) => setSettings({ voiceEnabled: item.checked }) },
       { type: 'separator' },
       ...brainMenu(s),
+      characterMenu(s),
       { type: 'separator' },
       { label: 'Settings…', click: openSettings },
       { label: 'Memory…', click: openMemory },
@@ -748,6 +769,7 @@ if (!app.requestSingleInstanceLock()) {
     onSettingsChanged((s) => {
       sendAll('settings:changed', s)
       updateTrayMenu()
+      tray?.setImage(trayIcon(s))
       void toolBox?.setEnabled(s.toolsEnabled)
     })
     createBuddy()

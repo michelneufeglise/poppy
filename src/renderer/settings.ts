@@ -1,3 +1,4 @@
+import { followCharacterHeader } from './character'
 import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings, type ToolsStatus } from '../shared/types'
 
 const api = window.poppy
@@ -22,6 +23,7 @@ const dutchVoice = $<HTMLSelectElement>('dutch-voice')
 const memoryOn = $<HTMLInputElement>('memory-on')
 const embedModel = $<HTMLSelectElement>('embed')
 const memoryStatus = $<HTMLParagraphElement>('memory-status')
+const character = $<HTMLSelectElement>('character')
 const toolsOn = $<HTMLInputElement>('tools-on')
 const toolsBox = $<HTMLDivElement>('tools-box')
 const toolServers = $<HTMLDivElement>('tool-servers')
@@ -114,6 +116,7 @@ function render(): void {
   sleep.value = String(settings.sleepAfterMinutes)
   memoryOn.checked = settings.memoryEnabled
   if (document.activeElement !== embedModel && embedModel.options.length) embedModel.value = settings.embedModel
+  character.value = settings.character
   toolsOn.checked = settings.toolsEnabled
   toolsBox.hidden = !settings.toolsEnabled
   toolRounds.value = String(settings.toolRounds)
@@ -270,6 +273,7 @@ dutchVoice.addEventListener('change', () => save({ dutchVoice: dutchVoice.value 
 memoryOn.addEventListener('change', () => save({ memoryEnabled: memoryOn.checked }))
 embedModel.addEventListener('change', () => save({ embedModel: embedModel.value }))
 $('open-memory').addEventListener('click', () => api.openMemory())
+character.addEventListener('change', () => save({ character: character.value as Settings['character'] }))
 toolsOn.addEventListener('change', () => save({ toolsEnabled: toolsOn.checked }))
 toolRounds.addEventListener('change', () => {
   const n = Math.min(10, Math.max(1, Math.round(Number(toolRounds.value) || 5)))
@@ -304,3 +308,5 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') api.closeSettings()
 })
 $('minimize').addEventListener('click', () => api.closeSettings())
+
+followCharacterHeader()

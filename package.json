@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "cut-sheet": "python3 scripts/cut_sheet.py",
     "cut-sheet2": "cd scripts && python3 cut_sheet2.py",
+    "cut-sheet-female": "cd scripts && python3 cut_sheet_female.py",
     "test": "vitest run",
     "cut-chat": "python3 scripts/cut_chat.py"
   },
