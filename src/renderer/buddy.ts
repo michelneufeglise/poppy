@@ -15,6 +15,7 @@ const labelUrls = import.meta.glob('../../assets/chat/label-*.png', { eager: tru
   string
 >
 const labelFor = (s: PoppyState): string => labelUrls[`../../assets/chat/label-${s}.png`]
+const TWO_LINE_LABELS = new Set<PoppyState>(['sad-hello', 'bye', 'clapping'])
 const closeIcon = new URL('../../assets/chat/close.png', import.meta.url).href
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -79,8 +80,10 @@ function setState(next: PoppyState, holdMs = 0, then: PoppyState = 'idle'): void
     state = next
     poppy.className = `poppy s-${next}`
     label.src = labelFor(next)
+    label.classList.toggle('two-lines', TWO_LINE_LABELS.has(next))
   }
-  if (holdMs) holdTimer = window.setTimeout(() => setState(then), holdMs)
+  // "listening" only makes sense while the chat is open; it may have closed during the hold.
+  if (holdMs) holdTimer = window.setTimeout(() => setState(then === 'listening' && panel.hidden ? 'idle' : then), holdMs)
 }
 
 function touch(): void {
@@ -107,11 +110,22 @@ function wake(): void {
   showBubble('Oh! Hi again.', 3500)
 }
 
-// Fall asleep after a while without anything happening.
+// While nothing happens on the desktop: now and then a little chill, a yawn a minute before
+// he dozes off (the "tired" drawing), then sleep.
+const CHILL_AFTER_MS = 2 * 60_000
 window.setInterval(() => {
-  if (state === 'idle' && panel.hidden && !replying && Date.now() - lastActivity > sleepAfterMs) {
+  const quiet = panel.hidden && !replying
+  const idleFor = Date.now() - lastActivity
+  const yawnAt = sleepAfterMs - Math.min(60_000, sleepAfterMs / 2)
+  if (state === 'tired' && (!quiet || idleFor < yawnAt)) setState('idle')
+  if (!quiet || (state !== 'idle' && state !== 'tired')) return
+  if (idleFor > sleepAfterMs) {
     bubble.hidden = true
     setState('sleeping')
+  } else if (idleFor > yawnAt) {
+    if (state === 'idle') setState('tired')
+  } else if (state === 'idle' && idleFor > CHILL_AFTER_MS && Math.random() < 1 / 16) {
+    setState('chilling', 20_000) // about once every 4 minutes, for 20 seconds
   }
 }, 15_000)
 
@@ -280,7 +294,7 @@ function closePanel(): void {
   panel.hidden = true
   document.body.classList.remove('chat-open')
   api.setChatOpen(false)
-  if (!replying && state === 'listening') setState('idle')
+  if (!replying && state === 'listening') setState('bye', 1800)
 }
 
 function togglePanel(): void {
@@ -304,7 +318,7 @@ form.addEventListener('submit', (e) => {
   replying = true
   replyMood = null
   latestId = Number.MAX_SAFE_INTEGER // accept the next reply id from main
-  setState('thinking')
+  setState(ids.length ? 'busy' : 'thinking') // busy: reading the attached files
   api.sendChat(text, ids)
 })
 
@@ -337,7 +351,13 @@ function newChat(): void {
 // The pencil icons from the user's picture: – hides Poppy, × closes the chat, gear = settings, menu.
 $('hide').addEventListener('click', () => {
   closePanel()
-  api.hide()
+  setState('bye', 2000)
+  window.setTimeout(() => api.hide(), 1200) // a short wave first
+})
+// Hide from the menu-bar icon or the ≡ menu: main waits for the wave.
+api.onBye(() => {
+  if (!panel.hidden) closePanel()
+  setState('bye', 2000)
 })
 $('close').addEventListener('click', closePanel)
 $('settings').addEventListener('click', () => api.openSettings())
@@ -505,7 +525,7 @@ api.onChatError((err) => {
     setText(replyEl, err.message)
     replyEl.classList.add('error')
   }
-  setState('sad', 8000)
+  setState(err.mood ?? 'sad', 8000)
   showBubble(err.message, 9000)
 })
 

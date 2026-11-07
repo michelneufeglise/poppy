@@ -55,6 +55,8 @@ const api = {
   /** The "good" / "not quite" links under Poppy's reply. */
   rateReply: (replyId: number, value: 'good' | 'not_quite') => ipcRenderer.send('chat:rate', replyId, value),
   onForgotAll: (cb: () => void) => on('ui:forgot-all', cb),
+  /** Wave goodbye: main hides the window right after. */
+  onBye: (cb: () => void) => on('ui:bye', cb),
 
   // memory
   openMemory: () => ipcRenderer.send('memory:open'),

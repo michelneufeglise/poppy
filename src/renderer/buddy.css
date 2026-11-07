@@ -153,6 +153,42 @@ img {
   50% { transform: rotate(3deg) translateY(-3px); }
 }
 
+/* The second sheet's states reuse the same whole-image moves; the rest just breathe. */
+.s-laughing .frame,
+.s-excited .frame,
+.s-cheerful .frame,
+.s-clapping .frame,
+.s-playful .frame { animation: hop 0.7s ease-in-out infinite; }
+.s-shocked .frame,
+.s-spooked .frame { animation: jump 0.35s ease-out 1, shake 0.12s linear 0.35s 4, breathe 3s ease-in-out 1s infinite; }
+.s-scared .frame,
+.s-nervous .frame,
+.s-anxious .frame,
+.s-frustrated .frame { animation: tremble 0.18s linear infinite; }
+@keyframes tremble {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1.5px); }
+  75% { transform: translateX(1.5px); }
+}
+.s-crying .frame,
+.s-sad-hello .frame,
+.s-sighing .frame,
+.s-tired .frame,
+.s-sick .frame,
+.s-bored .frame { animation: sad 4s ease-in-out infinite; }
+.s-bye .frame { animation: hello 0.6s ease-in-out infinite; }
+.s-confused .frame,
+.s-wonder .frame,
+.s-dreamy .frame,
+.s-doubtful .frame,
+.s-hopeful .frame,
+.s-shy .frame { animation: curious 2.8s ease-in-out infinite; }
+.s-angry .frame,
+.s-sneaky .frame { animation: ready 0.9s ease-in-out infinite; }
+.s-chilling .frame,
+.s-cuddly .frame,
+.s-lazy .frame { animation: sleep 5s ease-in-out infinite; }
+
 /* ---------- speech bubble (chat closed) ---------- */
 /* Bubbles draw their pencil outline in ::before, so the text can use the whole inside. */
 .bubble,
@@ -433,6 +469,10 @@ img {
 }
 .chat-open .label {
   display: block;
+}
+/* "Sadly saying hello", "Waving bye" and "Proud (clapping)" are lettered on two lines. */
+.label.two-lines {
+  height: 34px;
 }
 
 .composer {

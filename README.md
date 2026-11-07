@@ -32,7 +32,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 
 - **Lives on your desktop.** A see-through, always-on-top window in the bottom-right corner. Drag him anywhere; he remembers the spot. Clicks go straight through to your desktop except on Poppy himself.
 - **Chats with your local model.** Replies stream in from Ollama, word by word. Or, if you add an API key, from Claude, with Ollama taking over when Claude can't answer.
-- **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 12 poses, all hand-drawn.
+- **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 48 poses, all hand-drawn: from happy and curious to grumpy, hungry and chilling with sunglasses. He also waves when you close the chat, yawns before he falls asleep, and looks spooked when he can't reach Ollama.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
 - **Remembers and learns.** Facts about you, a knowledge graph of the people and things you mention, and lessons from your feedback. You can see and delete all of it.
@@ -261,7 +261,8 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
 | `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic) |
 | `npm run typecheck` | TypeScript check |
-| `npm run cut-sheet` | Re-cut Poppy's poses from the emotion sheet |
+| `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
+| `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
 
 ### Project layout
@@ -287,6 +288,7 @@ sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
 scripts/
   cut_sheet.py   cuts the 12 poses out of docs/design/emotions-sheet.jpg
+  cut_sheet2.py  cuts the 36 extra poses and their names out of docs/design/emotions-sheet-2.jpg
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
 docs/design/   the original drawings and the design notes
@@ -297,12 +299,13 @@ test/          unit tests (vitest)
 
 Poppy is not redrawn in code. Every pose and every piece of the chat is cut straight out of two hand-drawn pictures:
 
-- [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the 12 poses and their names.
+- [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
+- [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
 - [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (Poppy's bubble, stretched, is the whole chat balloon), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
 The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).
 
-<p align="center"><img src="docs/design/emotions-sheet.jpg" alt="The emotion sheet with Poppy's 12 poses" width="520"></p>
+<p align="center"><img src="docs/design/emotions-sheet.jpg" alt="The emotion sheet with Poppy's first 12 poses" width="380"> <img src="docs/design/emotions-sheet-2.jpg" alt="The second sheet with 36 more poses" width="380"></p>
 
 ### How a reply works
 

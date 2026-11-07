@@ -36,7 +36,8 @@ CANVAS_W, CANVAS_H = 380, 380
 SEAL = {"sad": 41}
 
 
-def cut(img: np.ndarray, paper: np.ndarray, box) -> np.ndarray:
+def cut(img: np.ndarray, paper: np.ndarray, box, zoom: float = 1.0) -> np.ndarray:
+    """zoom scales the drawing (another sheet may be drawn smaller), before it's fitted on the canvas."""
     name, x0, y0, x1, y1 = box
     crop = img[y0 - PAD : y1 + PAD, x0 - PAD : x1 + PAD].astype(np.float32)
     # White-balance: paper becomes pure white, pencil keeps its tone.
@@ -72,6 +73,10 @@ def cut(img: np.ndarray, paper: np.ndarray, box) -> np.ndarray:
 
     rgba = cv2.cvtColor(norm, cv2.COLOR_BGR2BGRA)
     rgba[:, :, 3] = alpha
+
+    if zoom != 1.0:
+        rgba = cv2.resize(rgba, (round(w * zoom), round(h * zoom)), interpolation=cv2.INTER_CUBIC)
+        h, w = rgba.shape[:2]
 
     # Place on a shared canvas: centered, bottom-aligned.
     canvas = np.zeros((CANVAS_H, CANVAS_W, 4), np.uint8)

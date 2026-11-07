@@ -26,6 +26,13 @@ describe('parseReply', () => {
   it('removes emoji, since replies are spoken', () => {
     expect(parseReply('[surprised] Whoa, a disaster! 🐱☕').text).toBe('Whoa, a disaster!')
   })
+  it('knows the moods from the second sheet, also with a dash', () => {
+    expect(parseReply('[sad-hello] Oh, hi.')).toEqual({ text: 'Oh, hi.', mood: 'sad-hello' })
+    expect(parseReply('[bye] See you!')).toEqual({ text: 'See you!', mood: 'bye' })
+    expect(parseReply('[clapping] Well done!')).toEqual({ text: 'Well done!', mood: 'clapping' })
+    expect(parseReply('[sad] Oh no.').mood).toBe('sad')
+  })
+
   it('knows the hello mood', () => {
     expect(parseReply('[hello] Hi there!')).toEqual({ text: 'Hi there!', mood: 'hello' })
   })

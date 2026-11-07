@@ -32,9 +32,14 @@ const MAX_HISTORY = 20
 const SYSTEM_PROMPT = `You are Poppy, a small, warm and slightly playful desk buddy who lives on the user's Mac.
 You talk like a friendly co-worker: short, natural replies of one to three sentences unless the user asks for more.
 Your words are spoken out loud, so never use markdown, lists, code blocks or emoji.
-Start every reply with exactly one mood tag in square brackets, picked from:
-[happy] [sad] [surprised] [curious] [focused] [determined] [thinking] [hello] [idle]
-Use [hello] when greeting.
+Start every reply with exactly one mood tag in square brackets: the one that best fits how you feel as you say it.
+Glad: [happy] [cheerful] [laughing] [excited] [playful] [proud] [clapping] [hopeful] [cuddly] [chilling]
+Surprised: [surprised] [shocked] [wonder] [spooked]
+Thinking: [thinking] [curious] [focused] [determined] [busy] [confused] [doubtful] [dreamy]
+Sad or worried: [sad] [crying] [sighing] [anxious] [nervous] [scared] [shy]
+Grumpy (only playfully, never at the user): [grumpy] [frustrated] [angry] [defiant] [disgusted] [bored] [sneaky]
+Body: [tired] [lazy] [hungry] [thirsty] [sick]
+Greetings: [hello] when greeting, [sad-hello] for a sad hello, [bye] when saying goodbye. Calm: [idle]
 Example: "[happy] Nice, that worked!" Never use any other tags.`
 
 let buddy: BrowserWindow | null = null
@@ -241,7 +246,7 @@ function updateTrayMenu(): void {
   const visible = buddy?.isVisible() ?? false
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: visible ? 'Hide Poppy' : 'Show Poppy', click: () => (visible ? buddy?.hide() : showBuddy()) },
+      { label: visible ? 'Hide Poppy' : 'Show Poppy', click: () => (visible ? hideBuddy() : showBuddy()) },
       {
         label: 'Chat with Poppy',
         click: () => {
@@ -307,11 +312,20 @@ function stopReply(): void {
 /** An error whose message is already written for the user. */
 class PoppyError extends Error {}
 
+/** Poppy waves goodbye, then the window hides. */
+function hideBuddy(): void {
+  if (!buddy?.isVisible()) return
+  sendBuddy('ui:bye')
+  setTimeout(() => buddy?.hide(), 1200)
+}
+
+const CANT_REACH_OLLAMA = "I can't reach Ollama. Is it running?"
+
 function friendlyError(err: unknown, model: string): string {
   if (err instanceof PoppyError || err instanceof BrainError) return err.message
   const msg = err instanceof Error ? err.message : String(err)
   if (/fetch failed|ECONNREFUSED|ENOTFOUND/i.test(msg) || (err as { cause?: unknown })?.cause)
-    return "I can't reach Ollama. Is it running?"
+    return CANT_REACH_OLLAMA
   if (/not found/i.test(msg)) return `I can't find the model "${model}". Pick another one in settings.`
   if (err instanceof OllamaError) return `Ollama says: ${msg}`
   return `Something went wrong: ${msg}`
@@ -441,7 +455,8 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     if (history.at(-1)?.role === 'user') history.pop()
     if (userMsgId) memory?.store.deleteMessage(userMsgId)
     console.error('chat failed', err)
-    sendBuddy('chat:error', { id, message: friendlyError(err, brain.lastModel || s.model) } satisfies ChatError)
+    const message = friendlyError(err, brain.lastModel || s.model)
+    sendBuddy('chat:error', { id, message, mood: message === CANT_REACH_OLLAMA ? 'spooked' : 'sad' } satisfies ChatError)
   } finally {
     if (current === ctrl) current = null
     if (id === replyId) chatBusy = false
@@ -534,7 +549,7 @@ function registerIpc(): void {
       { label: 'Settings…', click: openSettings },
       { label: 'Memory…', click: openMemory },
       { type: 'separator' },
-      { label: 'Hide Poppy', click: () => buddy?.hide() },
+      { label: 'Hide Poppy', click: () => hideBuddy() },
       { label: 'Quit Poppy', click: () => app.quit() }
     ]).popup({ window: buddy ?? undefined })
   })

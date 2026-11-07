@@ -1,5 +1,5 @@
-/** Every state Poppy can show. Each one maps to assets/states/<state>.png. */
-export const STATES = [
+/** The first emotion sheet (docs/design/emotions-sheet.jpg). */
+const FIRST_SHEET = [
   'idle',
   'listening',
   'thinking',
@@ -13,6 +13,19 @@ export const STATES = [
   'sleeping',
   'hello'
 ] as const
+
+/** "More emotions & states" (docs/design/emotions-sheet-2.jpg), row by row. */
+export const MORE_STATES = [
+  'angry', 'laughing', 'shy', 'sneaky', 'bored', 'tired',
+  'crying', 'scared', 'excited', 'disgusted', 'confused', 'proud',
+  'hungry', 'sick', 'shocked', 'anxious', 'cheerful', 'frustrated',
+  'grumpy', 'playful', 'dreamy', 'clapping', 'doubtful', 'lazy',
+  'sad-hello', 'bye', 'cuddly', 'thirsty', 'busy', 'spooked',
+  'nervous', 'hopeful', 'chilling', 'wonder', 'defiant', 'sighing'
+] as const
+
+/** Every state Poppy can show. Each one maps to assets/states/<state>.png. */
+export const STATES = [...FIRST_SHEET, ...MORE_STATES] as const
 export type PoppyState = (typeof STATES)[number]
 
 /** Moods the model may tag a reply with. Each one is also a state. */
@@ -25,7 +38,8 @@ export const MOODS = [
   'determined',
   'thinking',
   'hello',
-  'idle'
+  'idle',
+  ...MORE_STATES
 ] as const
 export type Mood = (typeof MOODS)[number]
 
@@ -115,6 +129,8 @@ export interface ChatUpdate {
 export interface ChatError {
   id: number
   message: string
+  /** The drawing to show; sad by default, spooked when Ollama can't be reached. */
+  mood?: Mood
 }
 
 export interface VoiceInfo {

@@ -4,9 +4,9 @@
 **Poppy is the user's own drawings. Don't redraw, re-create or "interpret" the character.**
 Every state shows the original picture from the emotion sheet, unchanged. This applies to every mockup, preview and implementation. Change it only when the user explicitly asks.
 
-- Source: [emotions-sheet.jpg](emotions-sheet.jpg)
+- Sources: [emotions-sheet.jpg](emotions-sheet.jpg) (the first 12 states) and [emotions-sheet-2.jpg](emotions-sheet-2.jpg) ("More emotions & states", 36 more)
 - Cut-out images (transparent background, solid white body): `assets/states/<state>.png`
-- They're made by `python3 scripts/cut_sheet.py`. When the user gives a new or updated sheet, replace the jpg, adjust the cell boxes in the script if needed, and run it again.
+- They're made by `python3 scripts/cut_sheet.py` (first sheet, measured boxes) and `python3 scripts/cut_sheet2.py` (second sheet: finds the gaps between drawings itself, gives every pencil stroke to one drawing, scales by 1.25 so a standing pose is as tall as on the first sheet). When the user gives a new or updated sheet, replace the jpg, adjust the boxes/rows in the script if needed, and run it again. The second script also cuts each state's lettering into `assets/chat/label-<state>.png`.
 - Live preview: [preview.html](preview.html). Start the `design-preview` server in `.claude/launch.json` and open http://localhost:5179/docs/design/preview.html.
 
 ## The 12 states
@@ -24,6 +24,14 @@ Every state shows the original picture from the emotion sheet, unchanged. This a
 | Determined | `determined.png` | Angry eyebrows, wide fighting stance (the second "Focused" on the sheet) |
 | Sleeping | `sleeping.png` | Sitting, eyes closed, "z z Z" |
 | Say hello | `hello.png` | Big eyes, open smile, waving |
+
+## The 36 states from the second sheet
+Row by row as drawn: angry, laughing, shy, sneaky, bored, tired · crying, scared, excited, disgusted, confused, proud · hungry, sick, shocked, anxious, cheerful, frustrated · grumpy, playful, dreamy, **clapping** ("Proud (clapping)"), doubtful, lazy · **sad-hello** ("Sadly saying hello"), **bye** ("Waving bye"), cuddly, thirsty, busy, spooked · nervous, hopeful, chilling, wonder, defiant, sighing.
+
+- The pink blush in shy, sick and frustrated is in the user's picture, so it stays.
+- All 36 are moods the model can pick (grouped in the system prompt; the grumpy ones "only playfully, never at the user").
+- Fixed moments in the app: **bye** when the chat balloon closes or Poppy is hidden (a short wave first), **tired** (the yawn) for the last minute before he falls asleep, **chilling** now and then for 20 s while idle on the desktop, **busy** while he reads attached files, **spooked** when Ollama can't be reached.
+- Their whole-image motion reuses the existing moves: hop (laughing, excited, cheerful, clapping, playful), jump and shake (shocked, spooked), a small tremble (scared, nervous, anxious, frustrated), the sad sink (crying, sad-hello, sighing, tired, sick, bored), the hello sway (bye), the curious tilt (confused, wonder, dreamy, doubtful, hopeful, shy), the ready bounce (angry, sneaky), slow breathing (chilling, cuddly, lazy); the rest breathe.
 
 ## What animation is allowed
 Motion is applied to the **whole drawing**, never by changing what's drawn:
