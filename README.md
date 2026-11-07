@@ -303,7 +303,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
-| `npm run cut-sheet-female` | Re-cut female Poppy from her three sheets |
+| `npm run cut-sheet-female` | Re-cut female Poppy from her two sheets |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
 
 ### Project layout
@@ -331,7 +331,7 @@ sidecar/
 scripts/
   cut_sheet.py   cuts the 12 poses out of docs/design/emotions-sheet.jpg
   cut_sheet2.py  cuts the 36 extra poses and their names out of docs/design/emotions-sheet-2.jpg
-  cut_sheet_female.py  cuts female Poppy (48 poses, names, header, menu-bar icon) out of her three sheets
+  cut_sheet_female.py  cuts female Poppy (48 poses, names, header, menu-bar icon) out of her two sheets
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
 docs/design/   the original drawings and the design notes
@@ -344,7 +344,7 @@ Poppy is not redrawn in code. Every pose and every piece of the chat is cut stra
 
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
 - [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
-- [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg), [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg) and [`-3.png`](docs/design/emotions-sheet-female-3.png): female Poppy's 48 poses.
+- [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): female Poppy's 48 poses.
 - [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (Poppy's bubble, stretched, is the whole chat balloon), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
 The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).

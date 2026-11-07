@@ -1,18 +1,17 @@
-"""Cut female Poppy out of her three sheets (same method as cut_sheet2.py; nothing is redrawn).
+"""Cut female Poppy out of her two sheets (same method as cut_sheet2.py; nothing is redrawn).
 
 - docs/design/emotions-sheet-female.jpg: 36 states, 6x6. The cell labelled "SLEEPING / SNEAKY"
-  shows her asleep, so it's "sleeping" (its "SNEAKY" lettering names the sneaky drawing below).
-  The second "WONDER" in the last row (arms crossed, a huff) is "sighing".
-- docs/design/emotions-sheet-female-2.jpg: curious, tired, focused and crying (4x2). The other cells
-  repeat states the first sheet already has, or are a drawing of the word "missing"; they're skipped.
-- docs/design/emotions-sheet-female-3.png: determined, proud, hello, hungry, sneaky, grumpy, playful
-  and dreamy (4x3). It's a screenshot: its round download button and dark bottom edge are painted
-  over in memory before cutting. Its "PROUD (CLAPPING)" cell shows her proud with arms crossed, so
-  only the word "PROUD" is used; its "CHEERFUL" smirk is "sneaky".
+  shows her asleep, so it's "sleeping" (sheet 2 has its own "SNEAKY").
+  The second "WONDER" in the last row (arms crossed, a huff) is "sighing". The drawing labelled
+  "LAUGHING" is a blush, so it's "shy" (with the "SHY" lettering); the drawing above "SHY" isn't used.
+- docs/design/emotions-sheet-female-2.jpg: the 12 states the first sheet doesn't have (curious, tired,
+  focused, crying, determined, proud, hello, hungry, sneaky, grumpy, playful, dreamy) and a real
+  laugh for "laughing", all from rows 1-4. The other cells repeat states the first sheet already has,
+  or are a drawing of the word "missing"; they're skipped.
 
-Each sheet draws her at another size, so the second and third are scaled to match the first, using a
-pose that's on both (sad, and waving bye). Her name tags are scaled to the same letter height.
-"sighing" has no lettering on her sheets, so it uses the male sheet's.
+The second sheet draws her at another size, so it's scaled to match the first using poses that are on
+both (sad, defiant, waving bye). Her name tags are scaled to the same letter height. "sighing" has no
+lettering on her sheets, so it uses the male sheet's.
 
 Output: assets/female/states/<state>.png and assets/female/chat/label-<state>.png, her menu-bar icon
 (assets/female/tray/, from her idle silhouette like the male one), and assets/female/chat/header.png:
@@ -38,7 +37,7 @@ LABEL_SCALE = 0.75  # the first sheet's lettering, same as the male second sheet
 SHEET1 = DESIGN / "emotions-sheet-female.jpg"
 NAMES1 = [
     ["idle", "listening", "thinking", "talking", "happy", "sad"],
-    ["surprised", "laughing", "shy", "sleeping", "bored", "angry"],
+    ["surprised", "shy", None, "sleeping", "bored", "angry"],
     ["scared", "excited", "disgusted", "confused", "cheerful", "frustrated"],
     ["sick", "shocked", "anxious", "clapping", "doubtful", "lazy"],
     ["sad-hello", "bye", "cuddly", "thirsty", "busy", "spooked"],
@@ -49,18 +48,18 @@ SLEEPING_LABEL_TOP = 826  # "SLEEPING" is lettered inside the drawing band, abov
 BYE_LABEL = (340, 2084, 615, 2178)  # leaves out a wave line of the sad hello next to it
 
 SHEET2 = DESIGN / "emotions-sheet-female-2.jpg"
-NAMES2 = [[None, "curious", None, "tired"], ["focused", None, "crying", None]]
-ROWS2 = [(188, 914, 990), (992, 1668, 1748)]
-FOCUSED_TOP = 1062  # "(or MissingUses)" from the cell above reaches into focused's column
-
-SHEET3 = DESIGN / "emotions-sheet-female-3.png"
-NAMES3 = [["determined", "proud", "hello", None], ["hungry", None, "sneaky", "grumpy"], [None, "playful", None, "dreamy"]]
-ROWS3 = [(14, 393, 436), (438, 796, 834), (836, 1164, 1204)]
-PROUD_WORD = (400, 388, 552, 436)  # just "PROUD" of "PROUD (CLAPPING)"
-BUTTON = ((692, 1183), 44)  # the screenshot's round download button: centre, radius
-FRAME_TOP = 1214  # the screenshot's dark bottom edge
-CORNER = (1340, 1176)  # its rounded bottom-right corner, next to "DREAMY"
-
+# Only rows 1-4 are used: rows 5-7 are smaller copies of the first sheet's drawings.
+NAMES2 = [
+    [None, "curious", None, "tired", "focused", None],
+    ["crying", None, "determined", None, "proud", None],
+    ["hello", None, "hungry", None, "sneaky", None],
+    ["grumpy", None, "playful", "laughing", "dreamy", None],
+]
+ROWS2 = [(170, 508, 565), (598, 910, 960), (975, 1300, 1350), (1350, 1640, 1690)]
+# Poses drawn on both sheets, to scale sheet 2 to sheet 1: {sheet-2 cell: name}.
+CRYING_TOP = 615  # the descenders of "(or MissingUses)" above crying aren't part of her
+DETERMINED_LABEL = (600, 910, 918, 960)  # "DETERMINED" is wider than its column
+SHARED = {(1, 1): "sad", (1, 3): "defiant", (2, 1): "bye"}
 
 def with_reference(names: list[list[str | None]], cell: tuple[int, int], name: str) -> list[list[str | None]]:
     out = [row[:] for row in names]
@@ -117,38 +116,31 @@ def female_header() -> None:
 def main() -> None:
     sheet1 = cv2.imread(str(SHEET1))
     sheet2 = cv2.imread(str(SHEET2))
-    sheet3 = cv2.imread(str(SHEET3))
-    paper3 = tuple(int(v) for v in np.median(sheet3.reshape(-1, 3), axis=0))
-    cv2.circle(sheet3, BUTTON[0], BUTTON[1], paper3, -1)
-    sheet3[FRAME_TOP:] = paper3
-    sheet3[CORNER[1]:, CORNER[0]:] = paper3
 
-    # Sizes: sheet 2 and 3 scaled so a pose that's on both matches sheet 1.
+    # Sizes: sheet 2 scaled so the poses that are on both sheets match sheet 1 (on average).
     h1 = cut_grid(sheet1, NAMES1, ROWS1, ZOOM, STATES, LABELS, label_above={(1, 3): SLEEPING_LABEL_TOP}, dry=True)
-    h2 = cut_grid(sheet2, with_reference(NAMES2, (1, 3), "sad"), ROWS2, 1, STATES, LABELS, cell_top={(1, 0): FOCUSED_TOP}, dry=True)
-    h3 = cut_grid(sheet3, with_reference(NAMES3, (0, 3), "bye"), ROWS3, 1, STATES, LABELS, dry=True)
-    zoom2 = ZOOM * h1["sad"] / h2["sad"]
-    zoom3 = ZOOM * h1["bye"] / h3["bye"]
+    names = NAMES2
+    for cell, name in SHARED.items():
+        names = with_reference(names, cell, name)
+    h2 = cut_grid(sheet2, names, ROWS2, 1, STATES, LABELS, cell_top={(1, 0): CRYING_TOP}, dry=True)
+    zoom2 = ZOOM * float(np.mean([h1[n] / h2[n] for n in SHARED.values()]))
     target = label_height(sheet1, ROWS1, NAMES1, "idle") * LABEL_SCALE
     scale2 = target / label_height(sheet2, ROWS2, NAMES2, "curious")
-    scale3 = target / label_height(sheet3, ROWS3, NAMES3, "determined")
-    print(f"zoom: sheet 1 {ZOOM:.2f}, sheet 2 {zoom2:.2f}, sheet 3 {zoom3:.2f}; labels {LABEL_SCALE:.2f}, {scale2:.2f}, {scale3:.2f}")
+    print(f"zoom: sheet 1 {ZOOM:.2f}, sheet 2 {zoom2:.2f}; labels {LABEL_SCALE:.2f}, {scale2:.2f}")
 
     cut_grid(
         sheet1, NAMES1, ROWS1, ZOOM, STATES, LABELS,
-        label_above={(1, 3): SLEEPING_LABEL_TOP}, extra_labels={(1, 3): "sneaky"}, label_boxes={"bye": BYE_LABEL},
+        label_above={(1, 3): SLEEPING_LABEL_TOP}, extra_labels={(1, 2): "shy"}, label_boxes={"bye": BYE_LABEL}, no_label=("shy",),
     )
-    cut_grid(sheet2, NAMES2, ROWS2, zoom2, STATES, LABELS, label_scale=scale2, cell_top={(1, 0): FOCUSED_TOP})
     cut_grid(
-        sheet3, NAMES3, ROWS3, zoom3, STATES, LABELS,
-        label_scale=scale3, label_boxes={"proud": PROUD_WORD}, no_label=("sneaky",),
+        sheet2, NAMES2, ROWS2, zoom2, STATES, LABELS,
+        label_scale=scale2, cell_top={(1, 0): CRYING_TOP}, label_boxes={"determined": DETERMINED_LABEL},
     )
     shutil.copyfile(ROOT / "assets/chat/label-sighing.png", LABELS / "label-sighing.png")
     print("saved sighing label (from the male sheet)")
     tray_icons(STATES / "idle.png", ROOT / "assets/female/tray")
     print("saved tray icons")
     female_header()
-
 
 if __name__ == "__main__":
     main()
