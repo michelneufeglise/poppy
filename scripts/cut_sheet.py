@@ -86,19 +86,35 @@ def cut(img: np.ndarray, paper: np.ndarray, box) -> np.ndarray:
 
 
 def tray_icons() -> None:
-    """Menu-bar icon: the idle drawing's silhouette as a macOS template image (black + alpha)."""
+    """Menu-bar icon: the idle drawing's silhouette as a macOS template image (black + alpha),
+    with the drawing's own pupils cut out as holes so it reads as Poppy's face at 18 px."""
     idle = cv2.imread(str(OUT / "idle.png"), cv2.IMREAD_UNCHANGED)
     ys, xs = np.where(idle[:, :, 3] > 0)
     idle = idle[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    body = idle[:, :, 3].astype(np.float32) / 255
+    # The pupils are the big dark blobs in the upper part of the drawing.
+    gray = cv2.cvtColor(idle[:, :, :3], cv2.COLOR_BGR2GRAY)
+    dark = ((gray < 90) & (body > 0.5)).astype(np.uint8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(dark)
+    h, w = dark.shape
+    eyes = np.zeros_like(dark)
+    for i in range(1, count):
+        top, height, area = stats[i, cv2.CC_STAT_TOP], stats[i, cv2.CC_STAT_HEIGHT], stats[i, cv2.CC_STAT_AREA]
+        if area > h * h * 0.002 and top + height < h * 0.6:
+            eyes[labels == i] = 1
+    # A little wider than the pupils, so the holes stay open after shrinking.
+    eyes = cv2.dilate(eyes, np.ones((5, 5), np.uint8)).astype(np.float32)
     tray = ROOT / "assets/tray"
     tray.mkdir(parents=True, exist_ok=True)
     for name, size in (("trayTemplate.png", 18), ("trayTemplate@2x.png", 36)):
-        h, w = idle.shape[:2]
         scale = size / max(h, w)
-        small = cv2.resize(idle, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA)
+        dims = (max(1, round(w * scale)), max(1, round(h * scale)))
+        alpha = np.clip(
+            cv2.resize(body, dims, interpolation=cv2.INTER_AREA) - cv2.resize(eyes, dims, interpolation=cv2.INTER_AREA), 0, 1
+        )
         icon = np.zeros((size, size, 4), np.uint8)
-        oy, ox = (size - small.shape[0]) // 2, (size - small.shape[1]) // 2
-        icon[oy : oy + small.shape[0], ox : ox + small.shape[1], 3] = small[:, :, 3]
+        oy, ox = (size - alpha.shape[0]) // 2, (size - alpha.shape[1]) // 2
+        icon[oy : oy + alpha.shape[0], ox : ox + alpha.shape[1], 3] = np.round(alpha * 255).astype(np.uint8)
         cv2.imwrite(str(tray / name), icon)
 
 
