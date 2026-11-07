@@ -28,7 +28,6 @@ const label = $<HTMLImageElement>('label')
 const chips = $<HTMLDivElement>('attachments')
 const drop = $<HTMLDivElement>('drop')
 
-$<HTMLImageElement>('idle-doodle').src = urlFor('idle')
 label.addEventListener('load', () => (label.style.width = `${label.naturalWidth * 0.5}px`))
 
 /** Message text goes in its own span, so it can use the empty paper inside the bubble's wide edge. */
@@ -222,20 +221,42 @@ function showEmpty(): void {
   log.innerHTML = '<div class="empty">Ask me anything.<br>I run on your own Ollama model.</div>'
 }
 
+/** The window grows upward for the balloon (main does that); wait for it, so Poppy never jumps. */
+function afterGrow(then: () => void): void {
+  let done = false
+  const go = (): void => {
+    if (done) return
+    done = true
+    window.removeEventListener('resize', onResize)
+    then()
+  }
+  const onResize = (): void => {
+    if (window.innerHeight > CLOSED_HEIGHT) go()
+  }
+  window.addEventListener('resize', onResize)
+  window.setTimeout(go, 250)
+}
+const CLOSED_HEIGHT = 560
+
 function openPanel(): void {
   touch()
   bubble.hidden = true
-  panel.hidden = false
-  document.body.classList.add('chat-open')
-  if (!log.childElementCount) showEmpty()
-  api.focus()
-  input.focus()
+  if (!panel.hidden) return
+  api.setChatOpen(true)
+  afterGrow(() => {
+    panel.hidden = false
+    document.body.classList.add('chat-open')
+    if (!log.childElementCount) showEmpty()
+    api.focus()
+    input.focus()
+  })
   if (!replying) setState('listening')
 }
 
 function closePanel(): void {
   panel.hidden = true
   document.body.classList.remove('chat-open')
+  api.setChatOpen(false)
   if (!replying && state === 'listening') setState('idle')
 }
 
@@ -289,7 +310,7 @@ function newChat(): void {
   input.focus()
 }
 
-// The header from the user's picture: – hides Poppy, × closes the chat, gear = settings, menu.
+// The pencil icons from the user's picture: – hides Poppy, × closes the chat, gear = settings, menu.
 $('hide').addEventListener('click', () => {
   closePanel()
   api.hide()

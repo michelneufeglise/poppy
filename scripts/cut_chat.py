@@ -35,6 +35,9 @@ PIECES = {
     "title": (535, 180, 925, 352, []),
     "close": (1288, 158, 1358, 222, []),
     "gear": (1145, 265, 1245, 365, []),
+    # – and ≡ on their own, for the balloon chat (same height as × and gear, so they line up in a row).
+    "minimize": (1200, 158, 1275, 222, []),
+    "menu": (1255, 270, 1352, 360, []),
     "line-top": (480, 372, 1380, 418, []),
     "line-bottom": (345, 1550, 1385, 1592, [(1090, 1550, 1330, 1561)]),  # tip of the "SAY HELLO" lettering
     "bubble-you": (930, 475, 1325, 692, [(995, 520, 1265, 612)]),

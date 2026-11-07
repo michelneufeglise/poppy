@@ -2,9 +2,9 @@
 
 **A hand-drawn desk buddy for macOS that talks with your local Ollama models.**
 
-Poppy is a small pencil-drawn character who sits on your desktop. Click him and a paper chat window opens. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. Everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking.
+Poppy is a small pencil-drawn character who sits on your desktop. Click him and a big comic speech balloon pops up above him: that's where you chat. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. Everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking.
 
-![Poppy on the desktop, the chat window and the settings window](docs/screenshots/overview.png)
+![Poppy on the desktop, the chat balloon and the settings window](docs/screenshots/overview.png)
 
 ---
 
@@ -36,9 +36,9 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Falls asleep** after 10 minutes of quiet and wakes up when you hover over him.
 - **Stays out of the way.** No Dock icon; a small menu-bar icon has everything else.
 
-| On the desktop | The chat window | Settings |
+| On the desktop | The chat balloon | Settings |
 | --- | --- | --- |
-| ![Poppy waving with a speech bubble](docs/screenshots/floating.png) | ![The chat window with an image attachment](docs/screenshots/chat.png) | ![The settings window](docs/screenshots/settings.png) |
+| ![Poppy waving with a speech bubble](docs/screenshots/floating.png) | ![The chat balloon above Poppy, with an image attachment](docs/screenshots/chat.png) | ![The settings window](docs/screenshots/settings.png) |
 
 ## What you need
 
@@ -111,19 +111,19 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | You want to… | Do this |
 | --- | --- |
 | Open the chat | Click Poppy |
-| Move Poppy | Drag him (or drag the chat window by its header) |
-| Close the chat | The **×** in the header, or press Esc |
-| Hide Poppy | The **–** in the header. Bring him back from the menu-bar icon → Show Poppy |
-| Start a new conversation | The **≡** menu in the header → New chat |
+| Move Poppy | Drag him (or drag the chat balloon by its top edge) |
+| Close the chat | The **×** at the top of the balloon, or press Esc |
+| Hide Poppy | The **–** at the top of the balloon. Bring him back from the menu-bar icon → Show Poppy |
+| Start a new conversation | The **≡** menu at the top of the balloon → New chat |
 | Turn the voice on or off | The **≡** menu → Voice, or the menu-bar icon |
-| Open settings | The gear in the header, or the menu-bar icon → Settings… |
+| Open settings | The gear at the top of the balloon, or the menu-bar icon → Settings… |
 | Put Poppy back in the corner | Menu-bar icon → Reset position |
 
-While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, *talking* while he speaks, and then the mood the model picked. The name of the current state is written under him in the chat window.
+While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, *talking* while he speaks, and then the mood the model picked. While the chat is open, the name of the current state is written next to his feet.
 
 ## Attachments
 
-Click **attach** in the chat window, choose **Attach file…** from the ≡ menu, or simply **drag files onto the chat window**. Each file shows up as a small chip above the input; click its × to remove it. Then type your question (or nothing at all) and press Send.
+Click **attach** in the balloon, choose **Attach file…** from the ≡ menu, or simply **drag files onto the balloon**. Each file shows up as a small name tag above the input; click its × to remove it. Then type your question (or nothing at all) and press Send.
 
 | Kind | Files | What Poppy does with it |
 | --- | --- | --- |
@@ -153,7 +153,7 @@ More Mac voices can be added in **System Settings → Accessibility → Spoken C
 
 ## Settings
 
-Open them from the gear in the chat window or the menu-bar icon → Settings…. Changes are saved right away.
+Open them from the gear in the chat balloon or the menu-bar icon → Settings…. Changes are saved right away.
 
 | Setting | What it does |
 | --- | --- |
@@ -206,7 +206,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's poses from the emotion sheet |
-| `npm run cut-chat` | Re-cut the chat window pieces from the chat-window picture |
+| `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
 
 ### Project layout
 
@@ -221,13 +221,13 @@ src/
     attachments.ts reads attached files (images, PDFs, text)
     settings.ts    settings.json
   preload/     the window.poppy bridge
-  renderer/    the Poppy window, the chat window and the settings window
+  renderer/    the Poppy window (with the chat balloon) and the settings window
   shared/      types and pure logic (mood tags, speech text, attachment rules)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
 scripts/
   cut_sheet.py   cuts the 12 poses out of docs/design/emotions-sheet.jpg
-  cut_chat.py    cuts the chat window pieces out of docs/design/chat-window.jpg
+  cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
 docs/design/   the original drawings and the design notes
 test/          unit tests (vitest)
@@ -235,12 +235,12 @@ test/          unit tests (vitest)
 
 ### How the drawings become the app
 
-Poppy is not redrawn in code. Every pose and every piece of the chat window is cut straight out of two hand-drawn pictures:
+Poppy is not redrawn in code. Every pose and every piece of the chat is cut straight out of two hand-drawn pictures:
 
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the 12 poses and their names.
-- [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the chat window, header, speech bubbles, input and Send button.
+- [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (Poppy's bubble, stretched, is the whole chat balloon), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
-The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The window frame, bubbles and input are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).
+The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).
 
 <p align="center"><img src="docs/design/emotions-sheet.jpg" alt="The emotion sheet with Poppy's 12 poses" width="520"></p>
 

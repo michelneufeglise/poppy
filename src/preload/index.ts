@@ -13,6 +13,8 @@ const api = {
   getPosition: () => ipcRenderer.invoke('buddy:get-position') as Promise<[number, number]>,
   setPosition: (x: number, y: number) => ipcRenderer.send('buddy:set-position', x, y),
   savePosition: () => ipcRenderer.send('buddy:save-position'),
+  /** Grow the window for the chat balloon (true) or shrink it back (false). */
+  setChatOpen: (open: boolean) => ipcRenderer.send('buddy:chat-open', open),
   focus: () => ipcRenderer.send('buddy:focus'),
   onOpenChat: (cb: () => void) => on('ui:open-chat', cb),
   onNewChat: (cb: () => void) => on('ui:new-chat', cb),

@@ -20,6 +20,8 @@ import { listVoices, Voice, type Speech } from './voice'
 
 const BUDDY_W = 380
 const BUDDY_H = 560
+/** While the chat balloon is open the window grows upward to this height; Poppy stays where he is. */
+const CHAT_H = 800
 const MAX_HISTORY = 20
 
 const SYSTEM_PROMPT = `You are Poppy, a small, warm and slightly playful desk buddy who lives on the user's Mac.
@@ -39,6 +41,9 @@ let lastLang: SpeechLang = 'en'
 let history: ChatMessage[] = []
 let replyId = 0
 let current: AbortController | null = null
+let chatOpen = false
+/** How far the window had to move down to fit on screen when the chat opened (undone when it closes). */
+let pushedDown = 0
 
 // ---------- windows ----------
 
@@ -96,6 +101,33 @@ function createBuddy(): void {
   buddy.on('show', updateTrayMenu)
   buddy.on('hide', updateTrayMenu)
   load(buddy, 'index.html')
+}
+
+/**
+ * Grows the window upward for the chat balloon, or shrinks it back, keeping Poppy (at the bottom) in place.
+ * Near the top of the screen the window moves down just enough to fit, and moves back when the chat closes.
+ */
+function setChatOpen(open: boolean): void {
+  if (!buddy || open === chatOpen) return
+  chatOpen = open
+  const b = buddy.getBounds()
+  if (open) {
+    const wanted = b.y - (CHAT_H - BUDDY_H)
+    const y = Math.max(wanted, screen.getDisplayMatching(b).workArea.y)
+    pushedDown = y - wanted
+    buddy.setBounds({ x: b.x, y, width: BUDDY_W, height: CHAT_H })
+  } else {
+    buddy.setBounds({ x: b.x, y: b.y + (CHAT_H - BUDDY_H) - pushedDown, width: BUDDY_W, height: BUDDY_H })
+    pushedDown = 0
+  }
+}
+
+/** Puts Poppy at a saved or default spot (the top-left of the window as it is with the chat closed). */
+function placeBuddy(p: { x: number; y: number }): void {
+  if (!buddy) return
+  const h = buddy.getBounds().height
+  pushedDown = 0
+  buddy.setBounds({ x: p.x, y: p.y - (h - BUDDY_H), width: BUDDY_W, height: h })
 }
 
 function openSettings(): void {
@@ -179,8 +211,7 @@ function updateTrayMenu(): void {
       {
         label: 'Reset position',
         click: () => {
-          const p = defaultPosition()
-          buddy?.setPosition(p.x, p.y)
+          placeBuddy(defaultPosition())
           setSettings({ position: null })
         }
       },
@@ -342,12 +373,15 @@ function registerIpc(): void {
   ipcMain.handle('buddy:get-position', () => buddy?.getPosition() ?? [0, 0])
   ipcMain.on('buddy:set-position', (_e, x: number, y: number) => {
     buddy?.setPosition(Math.round(x), Math.round(y))
+    pushedDown = 0 // moved by hand: stay where the user puts him
   })
   ipcMain.on('buddy:save-position', () => {
     if (!buddy) return
-    const [x, y] = buddy.getPosition()
-    setSettings({ position: { x, y } })
+    // Saved as the closed window's top-left, whatever size the window has right now.
+    const b = buddy.getBounds()
+    setSettings({ position: { x: b.x, y: b.y + b.height - BUDDY_H } })
   })
+  ipcMain.on('buddy:chat-open', (_e, open: boolean) => setChatOpen(!!open))
   ipcMain.on('buddy:focus', () => {
     app.focus({ steal: true })
     buddy?.focus()

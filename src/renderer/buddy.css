@@ -52,18 +52,6 @@ img {
     width 0.45s ease,
     height 0.45s ease;
 }
-/* With the chat open, Poppy stands inside the window, bottom-right, like in the user's picture.
-   Multiply lets the paper show through his white body. */
-.chat-open .poppy {
-  right: 22px;
-  bottom: 112px;
-  width: 108px;
-  height: 108px;
-  mix-blend-mode: multiply;
-}
-.chat-open .shadow {
-  display: none;
-}
 .poppy:active {
   cursor: grabbing;
 }
@@ -186,7 +174,7 @@ img {
   pointer-events: none;
 }
 .bubble::before,
-.msg.bot::before {
+.panel::before {
   border-width: 20px 104px 34px 23px;
   border-image: url('../../assets/chat/bubble-poppy.png') 42 219 72 48 fill stretch;
 }
@@ -219,51 +207,78 @@ img {
   display: none;
 }
 
-/* ---------- chat window ---------- */
+/* ---------- chat balloon ---------- */
+/* One big speech balloon (Poppy's bubble from the picture, stretched), its tail pointing down at Poppy,
+   who stands under it at his normal size. The window grows upward while it's open (main process). */
 .panel {
   position: fixed;
-  left: 4px;
+  left: 0;
   top: 4px;
-  width: 372px;
-  height: 552px;
-  animation: pop 0.2s ease-out;
+  width: 380px;
+  height: 576px;
+  box-sizing: border-box;
+  /* Messages, file names, "attach" and the input stack from the top down; files push messages up. */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 48px 30px 60px 26px;
+  isolation: isolate;
+  transform-origin: 75% 100%;
+  animation: balloon 0.22s ease-out;
 }
-/* The pencil frame, on top of everything, never catching the mouse. */
-.panel::after {
+.panel::before {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-style: solid;
-  border-width: 23px 28px 28px 23px;
-  border-image: url('../../assets/chat/frame.png') 48 60 60 48 stretch;
+  border-color: transparent;
+  border-width: 26px 130px 44px 30px;
   pointer-events: none;
 }
-.paper {
-  position: absolute;
-  inset: 7px 8px 8px 7px;
-  border-radius: 16px;
-  background: url('../../assets/chat/paper.png') 0 0 / 386px auto repeat;
+@keyframes balloon {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: none; opacity: 1; }
 }
 
-.line {
+/* Top strip: drag the balloon here; the pencil icons from the picture sit on the right. */
+.head {
   position: absolute;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  pointer-events: none;
+  left: 24px;
+  right: 22px;
+  top: 10px;
+  height: 40px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  cursor: grab;
 }
-.line-bottom {
-  left: 70px;
-  right: 16px;
-  top: 458px;
-  height: 12px;
-  background-image: url('../../assets/chat/line-bottom.png');
+.head:active {
+  cursor: grabbing;
+}
+.icon {
+  height: 30px;
+  padding: 0 3px;
+  line-height: 0;
+  border-radius: 8px;
+}
+.icon img {
+  height: 100%;
+  mix-blend-mode: multiply;
+}
+#hide img,
+#close img {
+  height: 22px;
+}
+.icon:hover {
+  background: rgba(38, 38, 36, 0.07);
 }
 
 /* ---------- attachments ---------- */
 .attach {
-  position: absolute;
-  left: 84px;
-  top: 430px;
+  align-self: flex-start;
+  margin: 2px 0 4px 4px;
   font-size: 17px;
   color: var(--pencil);
   padding: 0 6px;
@@ -278,12 +293,10 @@ img {
 }
 /* Name tags of attached files, stacked up from the "attach" link. */
 .attachments {
-  position: absolute;
-  left: 84px;
-  bottom: 124px;
-  width: 154px;
+  width: 240px;
+  margin-left: 8px;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 2px;
 }
 .chip {
@@ -329,7 +342,7 @@ img {
 /* Shown while files are dragged over the chat window. */
 .drop {
   position: absolute;
-  inset: 96px 14px 92px 14px;
+  inset: 50px 26px 120px 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -360,22 +373,20 @@ img {
   mix-blend-mode: multiply;
 }
 
-/* Messages: above Poppy, who stands bottom-right. */
+/* Messages fill the balloon above the composer. */
 .log {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 100px;
-  height: 236px;
+  flex: 1;
+  min-height: 0;
+  margin-left: 4px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 0 0;
+  gap: 8px;
+  padding: 14px 0 4px;
   user-select: text;
   -webkit-user-select: text;
   scrollbar-width: none;
-  /* Older messages fade out under the header line instead of being cut off. */
+  /* Older messages fade out under the icons instead of being cut off. */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
   mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
 }
@@ -396,12 +407,10 @@ img {
   border-width: 12px 28px 22px 17px;
   border-image: url('../../assets/chat/bubble-you.png') 26 59 46 36 fill stretch;
 }
-/* Poppy's bubble: tail pointing down at Poppy. */
+/* Poppy's words: written straight in his balloon, like a comic. */
 .msg.bot {
-  align-self: flex-start;
-  max-width: 92%;
-  min-width: 150px;
-  padding: 18px 24px 38px 25px;
+  align-self: stretch;
+  padding: 2px 4px;
 }
 .msg.error {
   font-style: italic;
@@ -413,28 +422,21 @@ img {
   font-size: 18px;
 }
 
-.idle-doodle {
-  position: absolute;
-  left: 18px;
-  top: 404px;
-  width: 58px;
-  height: 58px;
+/* The state's name, hand-lettered on the emotion sheet, left of Poppy's feet while the chat is open. */
+.label {
+  position: fixed;
+  right: 246px;
+  bottom: 40px;
+  height: 17px;
+  display: none;
   mix-blend-mode: multiply;
 }
-.label {
-  position: absolute;
-  right: 76px;
-  top: 440px;
-  height: 17px;
-  transform: translateX(50%);
-  mix-blend-mode: multiply;
+.chat-open .label {
+  display: block;
 }
 
 .composer {
-  position: absolute;
-  left: 18px;
-  right: 16px;
-  top: 470px;
+  flex: none;
   height: 58px;
   display: flex;
   gap: 4px;
