@@ -1,4 +1,4 @@
-import { followCharacterHeader } from './character'
+import { followCharacter, me } from './character'
 import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings, type ToolKeys, type ToolsStatus } from '../shared/types'
 
 const api = window.poppy
@@ -270,12 +270,12 @@ async function loadEmbedModels(): Promise<void> {
 
 function showMemoryStats(st: MemoryStats | null): void {
   if (!st) {
-    memoryStatus.textContent = "Poppy's memory couldn't start."
+    memoryStatus.textContent = `${me().name}'s memory couldn't start.`
     return
   }
   const parts = [`${st.facts} facts`, `${st.entities} people and things`, `${st.lessons} lessons`]
-  let text = `Poppy knows ${parts.join(', ')}.`
-  if (st.embeddings === 'missing') text += ` The search model isn't installed: run "ollama pull ${settings?.embedModel || 'nomic-embed-text'}". Until then Poppy searches by keywords.`
+  let text = `${me().name} knows ${parts.join(', ')}.`
+  if (st.embeddings === 'missing') text += ` The search model isn't installed: run "ollama pull ${settings?.embedModel || 'nomic-embed-text'}". Until then ${me().name} searches by keywords.`
   memoryStatus.textContent = text
   memoryStatus.className = st.embeddings === 'missing' ? 'hint error' : 'hint'
 }
@@ -290,7 +290,7 @@ function showClaude(st: typeof claude, note?: { ok: boolean; message: string }):
     text = note.message
     cls = note.ok ? 'hint ok' : 'hint error'
   } else if (!st.keySet) {
-    text = 'No key yet: Poppy uses Ollama until you add one.'
+    text = `No key yet: ${me().name} uses Ollama until you add one.`
   } else if (st.lastProblem) {
     text = `Key saved (${st.masked}). Last time Claude didn't answer: ${st.lastProblem}.`
     cls = 'hint error'
@@ -426,4 +426,8 @@ window.addEventListener('keydown', (e) => {
 })
 $('minimize').addEventListener('click', () => api.closeSettings())
 
-followCharacterHeader()
+// Poppy or Polly: names in the page follow the choice; re-render the texts made in code.
+followCharacter(() => {
+  void api.memoryStats().then(showMemoryStats)
+  showClaude(claude)
+})

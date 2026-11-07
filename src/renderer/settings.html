@@ -25,12 +25,12 @@
       <main class="scroll">
         <h1>Settings</h1>
         <section>
-          <h2>Poppy</h2>
-          <label for="character">Which Poppy</label>
+          <h2 data-buddy="{name}">Poppy</h2>
+          <label for="character">Poppy or Polly</label>
           <span class="field select">
             <select id="character">
-              <option value="male">Male Poppy</option>
-              <option value="female">Female Poppy</option>
+              <option value="male">Poppy (male)</option>
+              <option value="female">Polly (female)</option>
             </select>
           </span>
         </section>
@@ -56,7 +56,7 @@
             <label for="claude-model">Claude model</label>
             <span class="field select"><select id="claude-model"></select></span>
             <label class="check"><input id="fallback" type="checkbox" /> Use Ollama when Claude doesn't answer</label>
-            <p class="hint">Get a key at platform.claude.com, under API keys. With Claude, your messages, files and what Poppy learns from them go to Anthropic. Memory search stays on Ollama.</p>
+            <p class="hint">Get a key at platform.claude.com, under API keys. With Claude, your messages, files and what <span data-buddy="{name}">Poppy</span> learns from them go to Anthropic. Memory search stays on Ollama.</p>
           </div>
           <label for="url">Ollama address</label>
           <span class="field"><input id="url" type="url" spellcheck="false" /></span>
@@ -118,7 +118,7 @@
         <section>
           <h2>Memory</h2>
           <label class="check"><input id="memory-on" type="checkbox" /> Learn from our chats</label>
-          <p class="hint">Poppy remembers facts about you, the people and things you mention, and how you like to be answered. It's saved on this Mac. When Claude is the brain, learning runs on Claude too.</p>
+          <p class="hint"><span data-buddy="{name}">Poppy</span> remembers facts about you, the people and things you mention, and how you like to be answered. It's saved on this Mac. When Claude is the brain, learning runs on Claude too.</p>
           <label for="embed">Memory search model</label>
           <div class="row">
             <span class="field select"><select id="embed"></select></span>
@@ -130,10 +130,10 @@
 
         <section>
           <h2>Tools</h2>
-          <label class="check"><input id="tools-on" type="checkbox" /> Let Poppy use tools</label>
+          <label class="check"><input id="tools-on" type="checkbox" /> Let <span data-buddy="{name}">Poppy</span> use tools</label>
           <p class="hint">Tools that only read run right away; anything else asks you first in the chat. Works with the Ollama brain.</p>
           <div id="tools-box" class="group">
-            <h3>Poppy's own tools</h3>
+            <h3 data-buddy="{name}'s own tools">Poppy's own tools</h3>
             <div class="group">
               <label class="check"><input id="weather-on" type="checkbox" /> Weather</label>
               <label for="home-city">Home city <span class="hint-inline">(when you don't name a place)</span></label>
@@ -152,7 +152,7 @@
               <div id="local-search-box" class="group">
                 <label for="searxng-url">Local search address</label>
                 <span class="field"><input id="searxng-url" type="text" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:8890" /></span>
-                <p class="hint">A SearXNG search engine in Docker on this Mac. Set it up once with "npm run searxng" in Poppy's folder (see the README). It asks search engines like Google, Bing and DuckDuckGo for you, with no account. Poppy reads pages on this Mac.</p>
+                <p class="hint">A SearXNG search engine in Docker on this Mac. Set it up once with "npm run searxng" in Poppy's folder (see the README). It asks search engines like Google, Bing and DuckDuckGo for you, with no account. <span data-buddy="{name}">Poppy</span> reads pages on this Mac.</p>
               </div>
               <div id="ollama-search-box" class="group">
                 <label for="ollama-key">Ollama key</label>
@@ -161,7 +161,7 @@
                   <button id="save-ollama-key" class="btn" type="button">Save</button>
                 </div>
                 <button id="remove-ollama-key" class="btn" type="button" hidden>Remove key</button>
-                <p class="hint">Make a free key at ollama.com/settings/keys. Your searches and the pages Poppy reads go through ollama.com.</p>
+                <p class="hint">Make a free key at ollama.com/settings/keys. Your searches and the pages <span data-buddy="{name}">Poppy</span> reads go through ollama.com.</p>
               </div>
               <p id="web-status" class="hint"></p>
             </div>
@@ -176,7 +176,7 @@
               </div>
               <p id="music-status" class="hint"></p>
               <button id="remove-spotify" class="btn" type="button" hidden>Remove Spotify keys</button>
-              <p class="hint">Play, pause, skip and "what's playing" work without keys, and run without asking. To play songs by name, make an app at developer.spotify.com (the owner needs Premium) and paste its client ID and secret. Without them, Poppy opens the search in Spotify.</p>
+              <p class="hint">Play, pause, skip and "what's playing" work without keys, and run without asking. To play songs by name, make an app at developer.spotify.com (the owner needs Premium) and paste its client ID and secret. Without them, <span data-buddy="{name}">Poppy</span> opens the search in Spotify.</p>
             </div>
             <h3>More tools (MCP servers)</h3>
             <p class="hint">From the tools file (the same format as ollama-mcp-bridge).</p>

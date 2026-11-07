@@ -34,7 +34,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Lives on your desktop.** A see-through, always-on-top window in the bottom-right corner. Drag him anywhere; he remembers the spot. Clicks go straight through to your desktop except on Poppy himself.
 - **Chats with your local model.** Replies stream in from Ollama, word by word. Or, if you add an API key, from Claude, with Ollama taking over when Claude can't answer.
 - **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 48 poses, all hand-drawn: from happy and curious to grumpy, hungry and chilling with sunglasses. He also waves when you close the chat, yawns before he falls asleep, and looks spooked when he can't reach Ollama.
-- **Male or female.** Pick **Female Poppy** in Settings (or the menu-bar icon → Poppy) and every pose, name and the menu-bar icon switch to her drawings: the same 48 states, with cat ears.
+- **Poppy or Polly.** The female version is called **Polly**. Pick **Polly (female)** in Settings (or the menu-bar icon → Poppy or Polly) and every pose, the state names and the menu-bar icon switch to her drawings (the same 48 states, with cat ears), and she introduces herself as Polly. The app itself is still called Poppy.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
 - **Uses tools.** The weather, web search and your Spotify app are built in; hook up MCP servers (files, apps) for more. Anything that changes something waits for your yes (music controls excepted).
@@ -125,7 +125,7 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | You want to… | Do this |
 | --- | --- |
 | Open the chat | Click Poppy |
-| Ask something | Type in your balloon (top right) and press Enter; Shift+Enter starts a new line |
+| Ask something | Type in your balloon (top right) and press Enter; Shift+Enter starts a new line. After each answer a fresh, empty balloon pops in for the next question |
 | Move Poppy | Drag him (or drag your balloon by its top edge, next to the icons) |
 | Close the chat | The **×** at the top of your balloon, or press Esc |
 | Hide Poppy | The **–** at the top of your balloon. Bring him back from the menu-bar icon → Show Poppy |
@@ -263,7 +263,7 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Anthropic API key | Your key for Claude. **Save** checks it first; **Remove key** deletes it. |
 | Claude model | Default `claude-haiku-5-5`. The list comes from your account. |
 | Use Ollama when Claude doesn't answer | The backup. On by default. |
-| Which Poppy | **Male Poppy** (default) or **Female Poppy**. Only the drawings change. Also in the menu-bar icon → Poppy. |
+| Poppy or Polly | **Poppy (male)** (default) or **Polly (female)**: the drawings and the name she or he goes by. Also in the menu-bar icon → Poppy or Polly. |
 | Ollama address | Where Ollama runs. Default `http://127.0.0.1:11434`. |
 | Ollama model | Which local model Poppy uses. **Refresh** reloads the list. |
 | Speak replies out loud | Voice on or off. |
@@ -330,7 +330,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
 | `npm run searxng` | Set up (or re-create) the local search engine in Docker |
-| `npm run cut-sheet-female` | Re-cut female Poppy from her two sheets |
+| `npm run cut-sheet-female` | Re-cut Polly (female) from her two sheets |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
 
 ### Project layout
@@ -359,7 +359,7 @@ sidecar/
 scripts/
   cut_sheet.py   cuts the 12 poses out of docs/design/emotions-sheet.jpg
   cut_sheet2.py  cuts the 36 extra poses and their names out of docs/design/emotions-sheet-2.jpg
-  cut_sheet_female.py  cuts female Poppy (48 poses, names, header, menu-bar icon) out of her two sheets
+  cut_sheet_female.py  cuts Polly, the female version (48 poses, names, header, menu-bar icon) out of her two sheets
   searxng.sh           sets up the local search engine (SearXNG in Docker, 127.0.0.1 only)
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
@@ -373,7 +373,7 @@ Poppy is not redrawn in code. Every pose and every piece of the chat is cut stra
 
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
 - [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
-- [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): female Poppy's 48 poses.
+- [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): Polly's (female) 48 poses.
 - [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (yours and Poppy's, stretched to fit the text), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
 The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).

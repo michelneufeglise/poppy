@@ -1,5 +1,6 @@
 import type { MemorySnapshot, MemoryStats } from '../shared/types'
-import { followCharacterHeader } from './character'
+import { fill } from '../shared/buddy'
+import { followCharacter, me } from './character'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -30,15 +31,15 @@ function list(id: string, items: HTMLElement[], empty: string): void {
 }
 
 function summary(st: MemoryStats): string {
-  let text = `Poppy knows ${st.facts} facts about you, ${st.entities} people and things, and ${st.lessons} lessons, from ${st.messages} messages.`
-  if (st.embeddings === 'missing') text += ' The memory search model is not installed, so Poppy searches by keywords.'
+  let text = `${me().name} knows ${st.facts} facts about you, ${st.entities} people and things, and ${st.lessons} lessons, from ${st.messages} messages.`
+  if (st.embeddings === 'missing') text += ` The memory search model is not installed, so ${me().name} searches by keywords.`
   if (!st.learning) text += ' Learning is paused.'
   return text
 }
 
 function render(m: MemorySnapshot | null): void {
   if (!m) {
-    $('summary').textContent = "Poppy's memory couldn't start."
+    $('summary').textContent = `${me().name}'s memory couldn't start.`
     return
   }
   $('summary').textContent = summary(m.stats)
@@ -53,7 +54,7 @@ function render(m: MemorySnapshot | null): void {
       li.append(del('Forget this', () => api.deleteMemory('fact', f.id)))
       return li
     }),
-    'Nothing yet. Tell Poppy about yourself and he will remember.'
+    fill('Nothing yet. Tell {name} about yourself and {he} will remember.', me())
   )
   list(
     'notebook',
@@ -62,7 +63,7 @@ function render(m: MemorySnapshot | null): void {
       li.append(el('span', 'text', rule), del('Remove this rule', () => api.deleteMemory('rule', i)))
       return li
     }),
-    'Empty for now. Poppy writes it when he tidies up his memory.'
+    fill('Empty for now. {name} writes it when {he} tidies up {his} memory.', me())
   )
   list(
     'lessons',
@@ -71,7 +72,7 @@ function render(m: MemorySnapshot | null): void {
       li.append(el('span', 'text', l.text), del('Forget this lesson', () => api.deleteMemory('fact', l.id)))
       return li
     }),
-    'No lessons yet. Use "good" or "not quite" under a reply, or just correct Poppy.'
+    `No lessons yet. Use "good" or "not quite" under a reply, or just correct ${me().name}.`
   )
 
   const graph = m.entities.map((e) => {
@@ -112,7 +113,7 @@ $('reflect').addEventListener('click', async () => {
   void refresh()
 })
 $('forget-all').addEventListener('click', async () => {
-  if (await api.forgetEverything()) $('note').textContent = 'Poppy forgot everything.'
+  if (await api.forgetEverything()) $('note').textContent = `${me().name} forgot everything.`
   void refresh()
 })
 
@@ -131,4 +132,5 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') api.closeMemory()
 })
 
-followCharacterHeader()
+// Poppy or Polly: the page's words follow the choice.
+followCharacter(() => void refresh())

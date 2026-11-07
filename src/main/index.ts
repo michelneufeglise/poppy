@@ -13,6 +13,7 @@ import {
 } from '../shared/speech'
 import { ASK_TIMEOUT_MS, describeCall, needsAsk, toolRules, type ToolInfo } from '../shared/tools'
 import { todayNote, trimHistory, type BrainMessage } from '../shared/brain'
+import { buddyOf, fill } from '../shared/buddy'
 import {
   DEFAULT_SETTINGS,
   type ChatError,
@@ -45,7 +46,7 @@ const BUDDY_H = 560
 const CHAT_H = 800
 const MAX_HISTORY = 20
 
-const SYSTEM_PROMPT = `You are Poppy, a small, warm and slightly playful desk buddy who lives on the user's Mac.
+const SYSTEM_PROMPT = `You are {name}, a small, warm and slightly playful desk buddy who lives on the user's Mac.
 You talk like a friendly co-worker: short, natural replies of one to three sentences unless the user asks for more.
 Your words are spoken out loud, so never use markdown, lists, code blocks or emoji.
 Start every reply with exactly one mood tag in square brackets: the one that best fits how you feel as you say it.
@@ -248,12 +249,14 @@ function trayIcon(s: Settings): Electron.NativeImage {
   return icon
 }
 
-/** Male or female Poppy, for the menus. */
+/** Poppy (male) or Polly (female), for the menus. */
+const me = (): string => buddyOf(getSettings().character).name
+
 function characterMenu(s: Settings): Electron.MenuItemConstructorOptions {
   return {
-    label: 'Poppy',
+    label: 'Poppy or Polly',
     submenu: (['male', 'female'] as const).map((c) => ({
-      label: c === 'male' ? 'Male Poppy' : 'Female Poppy',
+      label: c === 'male' ? 'Poppy (male)' : 'Polly (female)',
       type: 'radio' as const,
       checked: s.character === c,
       click: () => setSettings({ character: c })
@@ -294,9 +297,9 @@ function updateTrayMenu(): void {
   const visible = buddy?.isVisible() ?? false
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: visible ? 'Hide Poppy' : 'Show Poppy', click: () => (visible ? hideBuddy() : showBuddy()) },
+      { label: visible ? `Hide ${me()}` : `Show ${me()}`, click: () => (visible ? hideBuddy() : showBuddy()) },
       {
-        label: 'Chat with Poppy',
+        label: `Chat with ${me()}`,
         click: () => {
           showBuddy()
           buddy?.focus()
@@ -504,7 +507,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
 
     const tools = chatTools(id, s)
     const toolsText = tools ? `${TOOLS_PROMPT}\n${toolRules(tools.list.map((t) => t.name))}` : ''
-    const messages: BrainMessage[] = [{ role: 'system', content: `${SYSTEM_PROMPT}\n\n${todayNote(new Date())}${toolsText}${note}` }, ...history]
+    const messages: BrainMessage[] = [{ role: 'system', content: `${fill(SYSTEM_PROMPT, buddyOf(getSettings().character))}\n\n${todayNote(new Date())}${toolsText}${note}` }, ...history]
     if (loaded.images.length) messages[messages.length - 1] = { ...messages.at(-1)!, images: loaded.images }
     const chars = messages.reduce((n, m) => n + m.content.length, 0)
     const numCtx = contextSize(chars, loaded.images.length)
@@ -536,6 +539,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
           for (const part of held) voice.speak(speechFor(part, lang, s))
         } else {
           const wrap = await spokenWrapUp({
+            name: me(),
             brain,
             said: said.join(' '),
             rest,
@@ -619,7 +623,7 @@ function registerIpc(): void {
   ipcMain.handle('attach:pick', async (_e, already: number) => {
     app.focus({ steal: true })
     const res = await dialog.showOpenDialog({
-      title: 'Attach files for Poppy',
+      title: `Attach files for ${me()}`,
       properties: ['openFile', 'multiSelections'],
       filters: [
         { name: 'Images, PDFs and text', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'pdf', 'txt', 'md', 'csv', 'json', 'html', 'xml', 'yaml', 'yml', 'log', 'py', 'js', 'ts', 'swift', 'java', 'go', 'rs', 'rb', 'sh', 'css', 'sql'] },
@@ -652,7 +656,7 @@ function registerIpc(): void {
       { label: 'Settings…', click: openSettings },
       { label: 'Memory…', click: openMemory },
       { type: 'separator' },
-      { label: 'Hide Poppy', click: () => hideBuddy() },
+      { label: `Hide ${me()}`, click: () => hideBuddy() },
       { label: 'Quit Poppy', click: () => app.quit() }
     ]).popup({ window: buddy ?? undefined })
   })
@@ -726,7 +730,7 @@ function registerIpc(): void {
       defaultId: 1,
       cancelId: 1,
       message: 'Forget everything?',
-      detail: 'Poppy forgets all chats, everything he learned about you, the people and things he knows, and his notebook. This cannot be undone.'
+      detail: fill('{name} forgets all chats, everything {he} learned about you, the people and things {he} knows, and {his} notebook. This cannot be undone.', buddyOf(getSettings().character))
     }
     const { response } = owner ? await dialog.showMessageBox(owner, opts) : await dialog.showMessageBox(opts)
     if (response !== 0) return false
@@ -764,7 +768,7 @@ function registerIpc(): void {
     // A new key means the user wants Claude; removing it goes back to Ollama only.
     setSettings({ brain: clean ? 'claude' : 'ollama' })
     sendAll('claude:status', { ...brain.status(), masked: maskedApiKey() })
-    return { ok: true, message: clean ? 'Key saved. Poppy now answers with Claude.' : 'Key removed. Poppy uses Ollama only.' }
+    return { ok: true, message: clean ? `Key saved. ${me()} now answers with Claude.` : `Key removed. ${me()} uses Ollama only.` }
   })
   ipcMain.handle('claude:models', async () => {
     const key = getApiKey()
@@ -780,7 +784,7 @@ function registerIpc(): void {
   ipcMain.on('voice:test', (_e, lang: SpeechLang) => {
     const s = getSettings()
     stopReply()
-    const line = lang === 'nl' ? 'Hoi, ik ben Poppy. Zo klink ik in het Nederlands.' : "Hi, I'm Poppy. This is how I sound."
+    const line = lang === 'nl' ? `Hoi, ik ben ${me()}. Zo klink ik in het Nederlands.` : `Hi, I'm ${me()}. This is how I sound.`
     voice.speak(speechFor(line, lang === 'nl' ? 'nl' : 'en', s))
   })
 }

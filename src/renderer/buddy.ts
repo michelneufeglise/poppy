@@ -1,4 +1,5 @@
 import { MAX_FILES } from '../shared/attachments'
+import { buddyOf } from '../shared/buddy'
 import { Motion } from './motion'
 import { STATES, type AttachmentInfo, type AttachResult, type Character, type Mood, type PoppyState } from '../shared/types'
 
@@ -84,11 +85,15 @@ for (const s of STATES) {
 }
 const motion = new Motion({ lean: leanLayer, react: reactLayer, loop: loopLayer, shadow: poppy.querySelector<HTMLElement>('.shadow') ?? undefined })
 
-/** Male or female Poppy: swaps every drawing and the name under the current one. */
+/** Poppy (male) or Polly (female): swaps every drawing, the state's name and what she's called. */
 function useCharacter(next: Character): void {
   const first = !imgs.idle.src
   if (next === character && !first) return
   character = next
+  const name = buddyOf(next).name
+  $<HTMLTextAreaElement>('input').placeholder = `Ask ${name} anything…`
+  $('panel').setAttribute('aria-label', `Chat with ${name}`)
+  for (const attr of ['aria-label', 'title']) $('hide').setAttribute(attr, `Hide ${name}`)
   for (const s of STATES) load(s)
   if (!first) label.src = labelFor(state)
 }
@@ -260,7 +265,8 @@ let latestId = -1
 let replyMood: Mood | null = null
 let rateable = true
 /** The question and answer in the two big balloons right now (null: nothing sent yet). */
-let current: { question: string; files: AttachmentInfo[]; answer: string; error: boolean } | null = null
+/** `moved`: the question already went up with the earlier balloons (the answer is in). */
+let current: { question: string; files: AttachmentInfo[]; answer: string; error: boolean; moved: boolean } | null = null
 
 function sayText(): HTMLSpanElement {
   let span = say.querySelector<HTMLSpanElement>(':scope > .text')
@@ -311,7 +317,7 @@ function addOld(who: 'you' | 'poppy', text: string, files: AttachmentInfo[] = []
 /** The user starts a new question: the last pair goes up with the earlier balloons. */
 function turnPage(): void {
   if (current) {
-    addOld('you', current.question, current.files)
+    if (!current.moved) addOld('you', current.question, current.files)
     if (current.answer) addOld('poppy', current.answer, [], current.error)
     current = null
   }
@@ -351,10 +357,19 @@ function addRating(replyId: number): void {
   say.appendChild(box)
 }
 
-/** The answer is in (or stopped): the user's balloon is free for the next question. */
+/** The answer is in (or stopped): the question goes up and a fresh, empty balloon pops in for the next one. */
 function finishReply(): void {
   replying = false
   input.readOnly = false
+  if (!current || current.moved) return
+  addOld('you', current.question, current.files)
+  current.moved = true
+  composer.classList.remove('sent')
+  input.value = ''
+  renderChips()
+  fitInput()
+  composer.animate([{ transform: 'scale(0.92)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220, easing: 'ease-out' })
+  if (!panel.hidden) input.focus()
 }
 
 /** The window grows upward for the balloons (main does that); wait for it, so Poppy never jumps. */
@@ -413,7 +428,7 @@ form.addEventListener('submit', (e) => {
   turnPage() // the earlier pair (if any) moves up
   attached = []
   refused = []
-  current = { question, files, answer: '', error: false }
+  current = { question, files, answer: '', error: false, moved: false }
   input.value = question
   input.readOnly = true
   composer.classList.add('sent')
@@ -435,10 +450,6 @@ input.addEventListener('keydown', (e) => {
     e.preventDefault()
     form.requestSubmit()
   }
-})
-// Typing after an answer starts the next question.
-input.addEventListener('beforeinput', () => {
-  if (!replying && composer.classList.contains('sent')) turnPage()
 })
 input.addEventListener('input', fitInput)
 input.addEventListener('focus', () => {
@@ -540,7 +551,6 @@ function renderChips(): void {
 }
 
 function took(result: AttachResult): void {
-  if (!replying && composer.classList.contains('sent')) turnPage()
   attached = [...attached, ...result.added]
   refused = result.refused
   window.clearTimeout(refusedTimer)
@@ -763,6 +773,7 @@ api.chatHistory().then((past) => {
 api.getSettings().then((s) => {
   sleepAfterMs = s.sleepAfterMinutes * 60_000
   useCharacter(s.character)
+  showBubble(`Hi! I'm ${buddyOf(s.character).name}. Click me to chat.`, 6000)
 })
 api.onSettingsChanged((s) => {
   sleepAfterMs = s.sleepAfterMinutes * 60_000
@@ -775,5 +786,4 @@ imgs.idle.classList.add('on')
 poppy.className = 'poppy s-idle'
 motion.setState('idle')
 label.src = labelFor('idle')
-setState('hello', 3500)
-showBubble("Hi! I'm Poppy. Click me to chat.", 6000)
+setState('hello', 3500) // the greeting itself waits for the settings: Poppy or Polly

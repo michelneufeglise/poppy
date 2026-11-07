@@ -1,3 +1,4 @@
+import { buddyOf, fill } from '../../shared/buddy'
 import { parseReply } from '../../shared/reply'
 import {
   asksWhatPoppyKnows,
@@ -27,32 +28,32 @@ const LEARN_TIMEOUT_MS = 90_000
 const EMBED_TIMEOUT_MS = 4_000
 const DAY = 86_400
 
-const LEARN_PROMPT = `You keep the long-term memory of Poppy, a small desk buddy who chats with one user.
+const LEARN_PROMPT = `You keep the long-term memory of {name}, a small desk buddy who chats with one user.
 Read one exchange and return only what is worth remembering for future chats, as JSON.
 
 facts: durable facts the USER stated about themselves: name, where they live, work, family, hobbies, preferences, projects, tools and things they own, ongoing plans.
 - One short sentence each, in English, in the third person, starting with "The user" (or their name once known).
-- NEVER: anything Poppy said, facts about Poppy, greetings, one-off moods ("tired today"), questions the user asked, hypotheticals, general knowledge.
+- NEVER: anything {name} said, facts about {name}, greetings, one-off moods ("tired today"), questions the user asked, hypotheticals, general knowledge.
 - kind: "about" (who they are), "preference" (likes, dislikes, how they want things), "project" (what they work on), "other".
 
 entities: people, organizations, projects, places, things and topics that matter to the user. type: person, organization, project, place, thing or topic.
 The user is always the entity "the user": never add the user's own name as a separate entity (their name belongs in facts).
 relations: links between those entities, e.g. {"from":"the user","type":"works_at","to":"Acme"} or {"from":"Sara","type":"sister_of","to":"the user"}. Use short snake_case verbs.
 outdated: ids of KNOWN facts (listed below) that this exchange shows are no longer true.
-lesson: if the user corrected Poppy, complained about his answer, or clearly liked how he answered, ONE short rule for Poppy for next time (e.g. "Keep answers about code short and skip the small talk."). Otherwise null.
+lesson: if the user corrected {name}, complained about {his} answer, or clearly liked how {he} answered, ONE short rule for {name} for next time (e.g. "Keep answers about code short and skip the small talk."). Otherwise null.
 
 Never invent anything. When nothing is worth keeping, return empty lists.
 Answer with JSON only, exactly this shape:
 {"facts":[{"text":"…","kind":"about"}],"entities":[{"name":"…","type":"person"}],"relations":[{"from":"…","type":"…","to":"…"}],"outdated":[],"lesson":null}`
 
-const FEEDBACK_PROMPT = `You help Poppy, a small desk buddy, learn how his user likes to be answered.
-The user rated one of Poppy's answers. Write ONE short, general lesson for Poppy's future answers (not about this one topic), in English, max 20 words.
+const FEEDBACK_PROMPT = `You help {name}, a small desk buddy, learn how {his} user likes to be answered.
+The user rated one of {name}'s answers. Write ONE short, general lesson for {name}'s future answers (not about this one topic), in English, max 20 words.
 - GOOD: say what worked, as a soft preference ("Short, concrete explanations with an everyday comparison work well.").
 - NOT QUITE: say what to do differently next time, based only on what you can see in this answer.
 Never make the lesson stricter or broader than the evidence. If nothing general can be learned, use null.
 Answer with JSON only: {"lesson":"…"} or {"lesson":null}`
 
-const NOTEBOOK_PROMPT = `You are Poppy, a small desk buddy. Below are lessons you learned about how your user likes to be answered.
+const NOTEBOOK_PROMPT = `You are {name}, a small desk buddy. Below are lessons you learned about how your user likes to be answered.
 Rewrite them into your own notebook: at most 10 short, clear rules for yourself, most important first.
 Merge rules that say the same thing; when two disagree, keep the newer one (listed later). Drop anything vague.
 Keep each rule exactly as soft or as strong as the lessons say; never make a rule stricter (no "always" or "exactly" unless a lesson says so).
@@ -133,6 +134,15 @@ export class Memory {
   private lastActivity = Date.now()
   private embeddings: 'ok' | 'missing' | 'unknown' = 'unknown'
   private statusListeners = new Set<() => void>()
+
+  /** Poppy or Polly, whoever the user picked. */
+  private get me(): string {
+    return buddyOf(this.deps.settings().character).name
+  }
+
+  private fill(prompt: string): string {
+    return fill(prompt, buddyOf(this.deps.settings().character))
+  }
 
   constructor(private deps: MemoryDeps) {
     this.store = new MemoryStore(deps.file)
@@ -311,14 +321,14 @@ export class Memory {
       related.length
         ? `Known facts that may be related (id: text):\n${related.map((f) => `${f.id}: ${f.text}`).join('\n')}`
         : 'Known facts that may be related: none',
-      before?.role === 'assistant' ? `Poppy's previous answer:\n"""\n${clip(before.display, 1200)}\n"""` : '',
+      before?.role === 'assistant' ? `${this.me}'s previous answer:\n"""\n${clip(before.display, 1200)}\n"""` : '',
       `The user:\n"""\n${clip(asked.content, 3000)}\n"""`,
-      `Poppy:\n"""\n${clip(parseReply(reply.content).text, 1500)}\n"""`,
-      looksLikeCorrection(asked.display) ? "(The user's message sounds like a correction of Poppy's previous answer.)" : ''
+      `${this.me}:\n"""\n${clip(parseReply(reply.content).text, 1500)}\n"""`,
+      looksLikeCorrection(asked.display) ? `(The user's message sounds like a correction of ${this.me}'s previous answer.)` : ''
     ]
       .filter(Boolean)
       .join('\n\n')
-    const raw = await this.askJson(LEARN_PROMPT, prompt, 700, LEARN_SCHEMA)
+    const raw = await this.askJson(this.fill(LEARN_PROMPT), prompt, 700, LEARN_SCHEMA)
     const found = parseExtraction(raw, related.map((f) => f.id))
     await this.save(found, asked.id)
     this.store.markLearned(replyId)
@@ -373,11 +383,11 @@ The user asked:
 ${clip(asked.display, 1200)}
 """
 
-Poppy answered:
+${this.me} answered:
 """
 ${clip(parseReply(reply.content).text, 1500)}
 """`
-    const raw = await this.askJson(FEEDBACK_PROMPT, prompt, 120, LESSON_SCHEMA)
+    const raw = await this.askJson(this.fill(FEEDBACK_PROMPT), prompt, 120, LESSON_SCHEMA)
     const data = firstJsonObject(raw) as { lesson?: unknown } | null
     const lesson = typeof data?.lesson === 'string' ? data.lesson.replace(/\s+/g, ' ').trim().slice(0, 200) : ''
     if (lesson.length < 8) return
@@ -456,7 +466,7 @@ ${clip(parseReply(reply.content).text, 1500)}
       if (lessons.length) {
         const { good, notQuite } = store.feedbackCounts()
         const raw = await this.askJson(
-          NOTEBOOK_PROMPT,
+          this.fill(NOTEBOOK_PROMPT),
           `Lessons, oldest first:\n${lessons.map((l) => `- ${l.text}`).join('\n')}\n\nRatings so far: ${good} good, ${notQuite} not quite.`,
           500,
           NOTEBOOK_SCHEMA
