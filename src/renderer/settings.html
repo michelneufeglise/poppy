@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws:"
+    />
+    <title>Poppy settings</title>
+    <link rel="stylesheet" href="./header.css" />
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <!-- Same paper window as the chat: every pencil piece is cut from docs/design/chat-window.jpg. -->
+    <div class="window">
+      <div class="paper"></div>
+      <header class="art-header head">
+        <img src="../../assets/chat/header.png" alt="Poppy" draggable="false" />
+        <button id="minimize" class="hot min" type="button" aria-label="Close settings" title="Close settings"></button>
+        <button id="close" class="hot close" type="button" aria-label="Close settings" title="Close settings"></button>
+        <span class="hot gear inert" aria-hidden="true"></span>
+        <span class="hot menu inert" aria-hidden="true"></span>
+      </header>
+
+      <main class="scroll">
+        <h1>Settings</h1>
+        <section>
+          <h2>Brain</h2>
+          <label for="url">Ollama address</label>
+          <span class="field"><input id="url" type="url" spellcheck="false" /></span>
+          <label for="model">Model</label>
+          <div class="row">
+            <span class="field select"><select id="model"></select></span>
+            <button id="refresh" class="btn" type="button">Refresh</button>
+          </div>
+          <p id="status" class="hint"></p>
+        </section>
+        <hr />
+
+        <section>
+          <h2>Voice</h2>
+          <label class="check"><input id="voice-on" type="checkbox" /> Speak replies out loud</label>
+          <label for="long">Long replies</label>
+          <span class="field select">
+            <select id="long">
+              <option value="summary">Read the start, then a short spoken wrap-up</option>
+              <option value="full">Read everything</option>
+            </select>
+          </span>
+        </section>
+        <hr />
+
+        <section>
+          <h2>English</h2>
+          <label for="engine">Voice engine</label>
+          <span class="field select">
+            <select id="engine">
+              <option value="kokoro">Kokoro (natural voice)</option>
+              <option value="mac">Mac voice</option>
+            </select>
+          </span>
+          <div id="kokoro-box" class="group">
+            <label for="kokoro-voice">Kokoro voice</label>
+            <span class="field select"><select id="kokoro-voice"></select></span>
+            <label for="kokoro-speed">Kokoro speed <span id="kokoro-speed-out"></span></label>
+            <input id="kokoro-speed" type="range" min="0.7" max="1.4" step="0.05" />
+            <p id="kokoro-status" class="hint"></p>
+          </div>
+          <label for="voice">Mac voice <span class="hint-inline">(also the backup if Kokoro fails)</span></label>
+          <span class="field select"><select id="voice"></select></span>
+          <button id="test-en" class="btn" type="button">Test English</button>
+        </section>
+        <hr />
+
+        <section>
+          <h2>Dutch</h2>
+          <label for="dutch-voice">Mac voice</label>
+          <span class="field select"><select id="dutch-voice"></select></span>
+          <label for="rate">Mac voice speed <span id="rate-out"></span></label>
+          <input id="rate" type="range" min="120" max="280" step="5" />
+          <p class="hint">Kokoro has no Dutch, so Dutch replies use a Mac voice. The speed is used for every Mac voice.</p>
+          <button id="test-nl" class="btn" type="button">Test Dutch</button>
+        </section>
+        <hr />
+
+        <section>
+          <h2>Behavior</h2>
+          <label for="sleep">Fall asleep after (minutes)</label>
+          <span class="field small"><input id="sleep" type="number" min="1" max="240" step="1" /></span>
+        </section>
+
+        <p class="hint saved">Changes are saved right away.</p>
+      </main>
+    </div>
+    <script type="module" src="./settings.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,229 @@
+/*
+ * The settings window, in the same paper style as the chat window.
+ * Every pencil piece (frame, lettering, ×, lines, field and button outlines) is cut from the
+ * user's picture by scripts/cut_chat.py. Pencil on cream paper in light and dark mode, no added color.
+ */
+@font-face {
+  font-family: 'Patrick Hand';
+  src: url('../../assets/fonts/PatrickHand-Regular.ttf') format('truetype');
+}
+
+:root {
+  --ink: #262624;
+  --pencil: #5d5c58;
+  --hand: 'Patrick Hand', 'Noteworthy', cursive;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font: 18px/1.3 var(--hand);
+  color: var(--ink);
+  accent-color: var(--ink);
+}
+img {
+  -webkit-user-drag: none;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- the paper window ---------- */
+.window {
+  position: fixed;
+  inset: 4px;
+}
+.window::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-style: solid;
+  border-width: 23px 28px 28px 23px;
+  border-image: url('../../assets/chat/frame.png') 48 60 60 48 stretch;
+  pointer-events: none;
+}
+.paper {
+  position: absolute;
+  inset: 7px 8px 8px 7px;
+  border-radius: 16px;
+  background: url('../../assets/chat/paper.png') 0 0 / 386px auto repeat;
+}
+
+.head {
+  width: 408px;
+  -webkit-app-region: drag;
+}
+.head .hot {
+  -webkit-app-region: no-drag;
+}
+hr {
+  height: 13px;
+  border: none;
+  background: url('../../assets/chat/line-top.png') 0 0 / 100% 100% no-repeat;
+}
+hr {
+  margin: 14px 4px 10px;
+}
+
+/* ---------- the settings ---------- */
+.scroll {
+  position: absolute;
+  left: 22px;
+  right: 24px;
+  top: 104px;
+  bottom: 24px;
+  overflow-y: auto;
+  padding: 12px 4px 8px;
+  scrollbar-width: none;
+  /* Content fades out under the header line instead of being cut off. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px, #000 calc(100% - 12px), transparent);
+}
+.scroll::-webkit-scrollbar {
+  display: none;
+}
+section,
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.group[hidden] {
+  display: none;
+}
+h1 {
+  font-size: 34px;
+  font-weight: normal;
+  margin: 0 0 6px;
+}
+h2 {
+  font-size: 26px;
+  font-weight: normal;
+  margin: 0 0 2px;
+}
+label {
+  font-size: 18px;
+  margin-top: 4px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.check input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.row .field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Text fields and dropdowns: the input box drawing from the picture. */
+.field {
+  position: relative;
+  display: flex;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 14px 7px 9px 12px;
+  border-image: url('../../assets/chat/input.png') 29 14 19 26 stretch;
+}
+.field.small {
+  width: 120px;
+}
+.field input,
+.field select {
+  flex: 1;
+  min-width: 0;
+  margin: -6px 0 -2px;
+  padding: 0 6px;
+  font-size: 18px;
+  background: transparent;
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.field.select select {
+  padding-right: 22px;
+  cursor: pointer;
+}
+.field.select::after {
+  content: 'v';
+  position: absolute;
+  right: 6px;
+  top: -6px;
+  font-size: 18px;
+  pointer-events: none;
+}
+.field:focus-within {
+  filter: contrast(1.6);
+}
+select:disabled,
+input:disabled,
+.btn:disabled {
+  opacity: 0.45;
+}
+
+/* Buttons: the Send button drawing with its word erased. */
+.btn {
+  align-self: flex-start;
+  padding: 1px 12px 3px;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 12px;
+  border-image: url('../../assets/chat/button.png') 40 40 38 38 stretch;
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+}
+.btn:hover {
+  filter: contrast(1.4);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.row .btn {
+  align-self: center;
+}
+
+input[type='range'] {
+  width: 100%;
+  margin: 2px 0 4px;
+}
+
+.hint,
+.hint-inline {
+  color: var(--pencil);
+  font-size: 16px;
+}
+.hint {
+  margin: 2px 0 0;
+}
+.hint.error {
+  color: var(--ink);
+  font-style: italic;
+}
+.hint.ok {
+  color: var(--ink);
+}
+.saved {
+  text-align: center;
+  margin-top: 16px;
+}

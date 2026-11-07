@@ -1,0 +1,32 @@
+{
+  "name": "poppy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A hand-drawn desk buddy for macOS that talks with your local Ollama models.",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/michelneufeglise/poppy.git"
+  },
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "cut-sheet": "python3 scripts/cut_sheet.py",
+    "test": "vitest run",
+    "cut-chat": "python3 scripts/cut_chat.py"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "electron": "^45.2.3",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299"
+  }
+}

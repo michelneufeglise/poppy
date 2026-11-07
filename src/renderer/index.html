@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws:"
+    />
+    <title>Poppy</title>
+    <link rel="stylesheet" href="./header.css" />
+    <link rel="stylesheet" href="./buddy.css" />
+  </head>
+  <body>
+    <!-- The chat window. Every pencil piece is cut from the user's picture (docs/design/chat-window.jpg). -->
+    <section id="panel" class="panel" hidden aria-label="Chat with Poppy">
+      <div class="paper"></div>
+      <header id="panel-head" class="art-header">
+        <img src="../../assets/chat/header.png" alt="Poppy" draggable="false" />
+        <button id="hide" class="hot min" type="button" aria-label="Hide Poppy" title="Hide Poppy"></button>
+        <button id="close" class="hot close" type="button" aria-label="Close chat" title="Close chat"></button>
+        <button id="settings" class="hot gear" type="button" aria-label="Settings" title="Settings"></button>
+        <button id="menu" class="hot menu" type="button" aria-label="Menu" title="Menu"></button>
+      </header>
+      <div id="log" class="log" aria-live="polite"></div>
+      <img id="idle-doodle" class="idle-doodle" alt="" draggable="false" />
+      <div id="attachments" class="attachments" aria-label="Attached files"></div>
+      <button id="attach" class="attach" type="button">attach</button>
+      <div id="drop" class="drop" hidden>drop to attach</div>
+      <img id="label" class="label" alt="" draggable="false" />
+      <div class="line line-bottom"></div>
+      <form id="form" class="composer">
+        <label class="field">
+          <input id="input" autocomplete="off" spellcheck="true" placeholder="Ask Poppy anything" />
+        </label>
+        <button id="send" class="send" type="submit" aria-label="Send">
+          <img src="../../assets/chat/send.png" alt="" draggable="false" />
+        </button>
+      </form>
+    </section>
+    <div id="bubble" class="bubble" hidden></div>
+    <div id="poppy" class="poppy"><div class="shadow"></div></div>
+    <script type="module" src="./buddy.ts"></script>
+  </body>
+</html>

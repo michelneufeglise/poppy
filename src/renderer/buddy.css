@@ -1,0 +1,480 @@
+/*
+ * Poppy's window. The chat window and bubbles are the user's own picture
+ * (docs/design/chat-window.jpg), cut into pieces by scripts/cut_chat.py and stretched
+ * with border-image. Pencil on paper in light and dark mode alike, no added color.
+ */
+@font-face {
+  font-family: 'Patrick Hand';
+  src: url('../../assets/fonts/PatrickHand-Regular.ttf') format('truetype');
+}
+
+:root {
+  --ink: #262624;
+  --pencil: #5d5c58;
+  /* Display size of the cut pieces: they're saved at 0.6 of the picture, shown at 0.473 of that. */
+  --hand: 'Patrick Hand', 'Noteworthy', cursive;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font: 19px/1.25 var(--hand);
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+img {
+  -webkit-user-drag: none;
+}
+
+/* ---------- Poppy ---------- */
+.poppy {
+  position: fixed;
+  right: 16px;
+  bottom: 6px;
+  width: 230px;
+  height: 230px;
+  cursor: grab;
+  transition:
+    right 0.45s ease,
+    bottom 0.45s ease,
+    width 0.45s ease,
+    height 0.45s ease;
+}
+/* With the chat open, Poppy stands inside the window, bottom-right, like in the user's picture.
+   Multiply lets the paper show through his white body. */
+.chat-open .poppy {
+  right: 22px;
+  bottom: 112px;
+  width: 108px;
+  height: 108px;
+  mix-blend-mode: multiply;
+}
+.chat-open .shadow {
+  display: none;
+}
+.poppy:active {
+  cursor: grabbing;
+}
+.poppy .frame {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+.poppy img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  -webkit-user-drag: none;
+}
+.poppy img.on {
+  opacity: 1;
+}
+.shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 140px;
+  height: 12px;
+  margin-left: -70px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(40, 40, 38, 0.35), transparent);
+  animation: shadow 3s ease-in-out infinite;
+}
+@keyframes shadow {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.92); }
+}
+
+/* Whole-drawing motion only: the drawings themselves never change. */
+.poppy .frame { animation: breathe 3s ease-in-out infinite; }
+@keyframes breathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-4px) scale(1.01, 0.99); }
+}
+.s-listening .frame { animation: listen 2.4s ease-in-out infinite; }
+@keyframes listen {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg) translateY(-3px); }
+}
+.s-thinking .frame { animation: think 3.6s ease-in-out infinite; }
+@keyframes think {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg) translateY(-2px); }
+}
+.s-talking .frame { animation: talk 0.5s ease-in-out infinite; }
+@keyframes talk {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.015, 0.985); }
+}
+.s-happy .frame { animation: hop 0.7s ease-in-out infinite; }
+@keyframes hop {
+  0%, 100% { transform: translateY(0) scale(1.02, 0.98); }
+  50% { transform: translateY(-16px) scale(0.98, 1.02); }
+}
+.s-sad .frame { animation: sad 4s ease-in-out infinite; }
+@keyframes sad {
+  0%, 100% { transform: translateY(2px) scale(1, 0.985); }
+  50% { transform: translateY(4px) scale(1, 0.97); }
+}
+.s-surprised .frame { animation: jump 0.35s ease-out 1, shake 0.12s linear 0.35s 4, breathe 3s ease-in-out 1s infinite; }
+@keyframes jump {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-22px) scale(0.96, 1.05); }
+  100% { transform: translateY(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+.s-curious .frame { animation: curious 2.8s ease-in-out infinite; }
+@keyframes curious {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(4deg); }
+}
+.s-focused .frame { animation: breathe 4s ease-in-out infinite; }
+.s-determined .frame { animation: ready 0.9s ease-in-out infinite; }
+@keyframes ready {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(3px) scale(1.02, 0.98); }
+}
+.s-sleeping .frame { animation: sleep 5s ease-in-out infinite; }
+@keyframes sleep {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.025, 1.03); }
+}
+.s-hello .frame { animation: hello 0.6s ease-in-out infinite; }
+@keyframes hello {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg) translateY(-3px); }
+}
+
+/* ---------- speech bubble (chat closed) ---------- */
+/* Bubbles draw their pencil outline in ::before, so the text can use the whole inside. */
+.bubble,
+.msg {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.bubble::before,
+.msg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-style: solid;
+  border-color: transparent;
+  pointer-events: none;
+}
+.bubble::before,
+.msg.bot::before {
+  border-width: 20px 104px 34px 23px;
+  border-image: url('../../assets/chat/bubble-poppy.png') 42 219 72 48 fill stretch;
+}
+.bubble {
+  position: fixed;
+  right: 18px;
+  bottom: 226px;
+  min-width: 150px;
+  max-width: 330px;
+  padding: 18px 26px 38px 25px;
+  user-select: text;
+  -webkit-user-select: text;
+  animation: pop 0.18s ease-out;
+}
+.bubble .text {
+  display: block;
+  max-height: 230px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.bubble .text::-webkit-scrollbar {
+  display: none;
+}
+@keyframes pop {
+  from { transform: translateY(6px) scale(0.97); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.bubble[hidden],
+.panel[hidden] {
+  display: none;
+}
+
+/* ---------- chat window ---------- */
+.panel {
+  position: fixed;
+  left: 4px;
+  top: 4px;
+  width: 372px;
+  height: 552px;
+  animation: pop 0.2s ease-out;
+}
+/* The pencil frame, on top of everything, never catching the mouse. */
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-style: solid;
+  border-width: 23px 28px 28px 23px;
+  border-image: url('../../assets/chat/frame.png') 48 60 60 48 stretch;
+  pointer-events: none;
+}
+.paper {
+  position: absolute;
+  inset: 7px 8px 8px 7px;
+  border-radius: 16px;
+  background: url('../../assets/chat/paper.png') 0 0 / 386px auto repeat;
+}
+
+.line {
+  position: absolute;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+.line-bottom {
+  left: 70px;
+  right: 16px;
+  top: 458px;
+  height: 12px;
+  background-image: url('../../assets/chat/line-bottom.png');
+}
+
+/* ---------- attachments ---------- */
+.attach {
+  position: absolute;
+  left: 84px;
+  top: 430px;
+  font-size: 17px;
+  color: var(--pencil);
+  padding: 0 6px;
+  border-radius: 8px;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.attach:hover {
+  background: rgba(38, 38, 36, 0.07);
+  color: var(--ink);
+}
+/* Name tags of attached files, stacked up from the "attach" link. */
+.attachments {
+  position: absolute;
+  left: 84px;
+  bottom: 124px;
+  width: 154px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+  line-height: 1.15;
+}
+.chip img.thumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 4px;
+  mix-blend-mode: multiply;
+}
+.chip .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px dashed var(--pencil);
+}
+.chip button {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  line-height: 0;
+  border-radius: 4px;
+}
+.chip button img {
+  width: 100%;
+}
+.chip button:hover {
+  background: rgba(38, 38, 36, 0.1);
+}
+.chip.refused {
+  color: var(--pencil);
+  font-style: italic;
+  white-space: normal;
+}
+/* Shown while files are dragged over the chat window. */
+.drop {
+  position: absolute;
+  inset: 96px 14px 92px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: rgba(253, 250, 242, 0.88);
+  border: 2px dashed var(--pencil);
+  border-radius: 18px;
+  pointer-events: none;
+  z-index: 5;
+}
+.drop[hidden] {
+  display: none;
+}
+/* Files shown in the user's bubble. */
+.msg .files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--pencil);
+}
+.msg .files img {
+  height: 56px;
+  max-width: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  mix-blend-mode: multiply;
+}
+
+/* Messages: above Poppy, who stands bottom-right. */
+.log {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 100px;
+  height: 236px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 0 0;
+  user-select: text;
+  -webkit-user-select: text;
+  scrollbar-width: none;
+  /* Older messages fade out under the header line instead of being cut off. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
+}
+.log::-webkit-scrollbar {
+  display: none;
+}
+.log > :first-child {
+  margin-top: auto;
+}
+/* The user's bubble: shading bottom-left, tail bottom-right. */
+.msg.you {
+  align-self: flex-end;
+  max-width: 92%;
+  min-width: 70px;
+  padding: 11px 26px 22px 21px;
+}
+.msg.you::before {
+  border-width: 12px 28px 22px 17px;
+  border-image: url('../../assets/chat/bubble-you.png') 26 59 46 36 fill stretch;
+}
+/* Poppy's bubble: tail pointing down at Poppy. */
+.msg.bot {
+  align-self: flex-start;
+  max-width: 92%;
+  min-width: 150px;
+  padding: 18px 24px 38px 25px;
+}
+.msg.error {
+  font-style: italic;
+}
+.empty {
+  margin: auto;
+  color: var(--pencil);
+  text-align: center;
+  font-size: 18px;
+}
+
+.idle-doodle {
+  position: absolute;
+  left: 18px;
+  top: 404px;
+  width: 58px;
+  height: 58px;
+  mix-blend-mode: multiply;
+}
+.label {
+  position: absolute;
+  right: 76px;
+  top: 440px;
+  height: 17px;
+  transform: translateX(50%);
+  mix-blend-mode: multiply;
+}
+
+.composer {
+  position: absolute;
+  left: 18px;
+  right: 16px;
+  top: 470px;
+  height: 58px;
+  display: flex;
+  gap: 4px;
+}
+.field {
+  flex: 1;
+  display: flex;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 14px 7px 9px 12px;
+  border-image: url('../../assets/chat/input.png') 29 14 19 26 stretch;
+}
+.field input {
+  flex: 1;
+  min-width: 0;
+  font: 20px var(--hand);
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0 6px;
+}
+.field input::placeholder {
+  color: var(--ink);
+  opacity: 0.85;
+}
+.field:focus-within {
+  filter: contrast(1.6);
+}
+.send {
+  width: 82px;
+  line-height: 0;
+  align-self: center;
+}
+.send img {
+  width: 100%;
+}
+.send:hover img {
+  filter: contrast(1.4);
+}
+.send:active {
+  transform: translateY(1px);
+}

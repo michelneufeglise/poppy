@@ -1,0 +1,52 @@
+Poppy is licensed in two parts.
+
+1. The code: MIT License
+------------------------
+
+Everything in this repository except the parts listed under 2 and 3 below
+(the TypeScript, Python, HTML, CSS, scripts, tests and config).
+
+Copyright (c) 2026 Michel Neufeglise
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+2. The drawings: all rights reserved
+------------------------------------
+
+The Poppy character and every drawing and picture in this repository are
+Copyright (c) 2026 Michel Neufeglise. All rights reserved.
+
+This covers:
+  - docs/design/       (the emotion sheet, the chat-window picture and sketches)
+  - docs/screenshots/  (screenshots, which show the drawings)
+  - assets/states/     (Poppy's poses, cut from the emotion sheet)
+  - assets/chat/       (the chat window pieces, cut from the chat-window picture)
+  - assets/tray/       (the menu-bar icon, made from a drawing)
+
+You may download and run Poppy with these drawings for your own personal use.
+You may not reuse, redistribute, modify or sell the drawings or the Poppy
+character on their own or in other projects without written permission.
+If you fork this project to make something new, please draw your own character.
+
+3. Third-party files
+--------------------
+
+assets/fonts/PatrickHand-Regular.ttf is the Patrick Hand font by Patrick
+Wagesreiter, licensed under the SIL Open Font License 1.1 (see
+assets/fonts/OFL.txt).

@@ -1,0 +1,43 @@
+/*
+ * The header from the user's picture (assets/chat/header.png, cut by scripts/cut_chat.py):
+ * listening Poppy, POPPY, –, ×, gear and menu, drawn as one piece. The buttons are invisible
+ * hotspots placed over the drawn icons, in percent of the picture, so the header can be any width.
+ */
+.art-header {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  width: 351px;
+  aspect-ratio: 741 / 173;
+  user-select: none;
+}
+.art-header > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.art-header .hot {
+  position: absolute;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.art-header .hot:hover {
+  background: rgba(38, 38, 36, 0.08);
+}
+.art-header .hot:active {
+  background: rgba(38, 38, 36, 0.14);
+}
+.art-header .min { left: 84%; width: 7.7%; top: 12%; height: 24%; }
+.art-header .close { left: 91.6%; width: 7%; top: 6%; height: 28%; }
+.art-header .gear { left: 80%; width: 9.2%; top: 44%; height: 40%; }
+.art-header .menu { left: 89.2%; width: 8.6%; top: 46%; height: 34%; }
+.art-header .hot.inert {
+  cursor: default;
+}
+.art-header .hot.inert:hover {
+  background: transparent;
+}

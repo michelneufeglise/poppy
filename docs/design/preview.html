@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poppy states</title>
+<style>
+  :root { --bg: #f4f3ef; --card: #ffffff; --text: #2c2c2a; --muted: #6b6a65; --border: #d9d7cf; --accent: #185fa5; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1d1d1c; --card: #2a2a28; --text: #f1efe8; --muted: #a8a69e; --border: #44443f; --accent: #85b7eb; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+  .stage { position: relative; height: 380px; display: flex; align-items: flex-end; justify-content: center; gap: 12px; }
+  .poppy { position: relative; width: 300px; height: 300px; }
+  .poppy img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: 50% 100%; transition: opacity .25s ease; }
+  .shadow { position: absolute; left: 50%; bottom: -6px; width: 170px; height: 14px; margin-left: -85px; border-radius: 50%; background: radial-gradient(closest-side, rgba(60,60,55,.35), transparent); animation: shadow 3s ease-in-out infinite; }
+  .bubble { align-self: center; max-width: 230px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; min-height: 44px; transition: opacity .25s; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; justify-content: center; }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  p.note { color: var(--muted); font-size: 13px; text-align: center; margin-top: 16px; }
+
+  /* Base motion: gentle breathing */
+  .anim { animation: breathe 3s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(-4px) scale(1.01,.99); } }
+  @keyframes shadow { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(.92); } }
+  /* Per-state motion, applied to the drawing as a whole */
+  .s-listening .anim { animation: listen 2.4s ease-in-out infinite; }
+  @keyframes listen { 0%,100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(2deg) translateY(-3px); } }
+  .s-thinking .anim { animation: think 3.6s ease-in-out infinite; }
+  @keyframes think { 0%,100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg) translateY(-2px); } }
+  .s-talking .anim { animation: talk .5s ease-in-out infinite; }
+  @keyframes talk { 0%,100% { transform: scale(1,1); } 50% { transform: scale(1.015,.985); } }
+  .s-happy .anim { animation: hop .7s ease-in-out infinite; }
+  @keyframes hop { 0%,100% { transform: translateY(0) scale(1.02,.98); } 50% { transform: translateY(-16px) scale(.98,1.02); } }
+  .s-sad .anim { animation: sad 4s ease-in-out infinite; }
+  @keyframes sad { 0%,100% { transform: translateY(2px) scale(1,.985); } 50% { transform: translateY(4px) scale(1,.97); } }
+  .s-surprised .anim { animation: jump .35s ease-out 1, shake .12s linear .35s 4, breathe 3s ease-in-out 1s infinite; }
+  @keyframes jump { 0% { transform: translateY(0) scale(1,1); } 40% { transform: translateY(-22px) scale(.96,1.05); } 100% { transform: translateY(0) scale(1,1); } }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+  .s-curious .anim { animation: curious 2.8s ease-in-out infinite; }
+  @keyframes curious { 0%,100% { transform: rotate(0); } 50% { transform: rotate(4deg); } }
+  .s-focused .anim { animation: focus 4s ease-in-out infinite; }
+  @keyframes focus { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+  .s-determined .anim { animation: ready .9s ease-in-out infinite; }
+  @keyframes ready { 0%,100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(3px) scale(1.02,.98); } }
+  .s-sleeping .anim { animation: sleep 5s ease-in-out infinite; }
+  @keyframes sleep { 0%,100% { transform: scale(1,1); } 50% { transform: scale(1.025,1.03); } }
+  .s-hello .anim { animation: hello .6s ease-in-out infinite; }
+  @keyframes hello { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg) translateY(-3px); } }
+</style>
+</head>
+<body>
+<main>
+  <div class="stage" id="stage">
+    <div class="poppy" id="poppy"><div class="shadow"></div></div>
+    <div class="bubble" id="bubble">Hi, I'm Poppy.</div>
+  </div>
+  <div class="controls" id="controls"></div>
+  <p class="note">Every state is the original drawing from your emotion sheet (assets/states). Only whole-drawing motion is added: breathing, hops, tilts and a crossfade between states.</p>
+</main>
+<script>
+  const STATES = [
+    ["idle", "Idle", "Hi, I'm Poppy."],
+    ["listening", "Listening", "I'm listening."],
+    ["thinking", "Thinking", "Hmm, let me think about that..."],
+    ["talking", "Talking", "You have 3 new emails. One from your accountant looks urgent."],
+    ["happy", "Happy", "Done! I tidied your Downloads folder."],
+    ["sad", "Sad", "I couldn't reach Ollama. Is it running?"],
+    ["surprised", "Surprised", "Whoa, 214 unread emails?"],
+    ["curious", "Curious", "What's in that new folder you made?"],
+    ["focused", "Focused", "Hmm, this invoice total doesn't add up."],
+    ["determined", "Determined", "Right. Let's clear that inbox."],
+    ["sleeping", "Sleeping", ""],
+    ["hello", "Say hello (voice)", "Hello! I'm Poppy, your desk buddy. What are we working on today?"],
+  ];
+  const poppy = document.getElementById("poppy");
+  const bubble = document.getElementById("bubble");
+  const controls = document.getElementById("controls");
+  const imgs = {};
+  for (const [id] of STATES) {
+    const wrap = document.createElement("div");
+    wrap.className = "anim";
+    wrap.style.cssText = "position:absolute;inset:0;transform-origin:50% 100%";
+    const img = document.createElement("img");
+    img.src = `../../assets/states/${id}.png`;
+    img.alt = `Poppy ${id}`;
+    img.style.opacity = 0;
+    wrap.appendChild(img);
+    poppy.appendChild(wrap);
+    imgs[id] = img;
+  }
+  function setState(id) {
+    const [, , line] = STATES.find(s => s[0] === id);
+    for (const k in imgs) imgs[k].style.opacity = k === id ? 1 : 0;
+    poppy.className = "poppy s-" + id;
+    bubble.textContent = line;
+    bubble.style.opacity = line ? 1 : 0;
+    controls.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.s === id));
+    try { speechSynthesis.cancel(); } catch (e) {}
+    if (id === "hello") {
+      try { const u = new SpeechSynthesisUtterance(line); u.pitch = 1.3; u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {}
+    }
+  }
+  for (const [id, label] of STATES) {
+    const b = document.createElement("button");
+    b.textContent = label; b.dataset.s = id; b.onclick = () => setState(id);
+    controls.appendChild(b);
+  }
+  setState("idle");
+</script>
+</body>
+</html>
