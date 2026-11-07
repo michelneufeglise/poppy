@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { parseReply, takeSentences } from '../src/shared/reply'
 
+describe('brackets around the whole reply', () => {
+  it('unwraps a reply the model put in brackets', () => {
+    expect(parseReply('[I am happy to help! You are Sam.]').text).toBe('I am happy to help! You are Sam.')
+    expect(parseReply('[happy] See [1] for details.').text).toBe('See [1] for details.')
+  })
+})
+
 describe('parseReply', () => {
   it('reads the mood tag and removes it', () => {
     expect(parseReply('[happy] Nice, that worked!')).toEqual({ text: 'Nice, that worked!', mood: 'happy' })
@@ -24,6 +31,13 @@ describe('parseReply', () => {
   })
   it('returns no mood when there is no tag', () => {
     expect(parseReply('Hello there.').mood).toBeNull()
+  })
+})
+
+describe('brackets around the whole reply', () => {
+  it('unwraps a reply the model put in brackets', () => {
+    expect(parseReply('[I am happy to help! You are Sam.]').text).toBe('I am happy to help! You are Sam.')
+    expect(parseReply('[happy] See [1] for details.').text).toBe('See [1] for details.')
   })
 })
 

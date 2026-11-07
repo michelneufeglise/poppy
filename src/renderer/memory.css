@@ -1,0 +1,88 @@
+/* Poppy's memory window: the settings paper window with lists. Pencil only, no added color. */
+h3 {
+  font-size: 21px;
+  font-weight: normal;
+  margin: 8px 0 0;
+}
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.items li,
+.link {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 17px;
+  line-height: 1.25;
+  user-select: text;
+}
+.items li .text,
+.link .text {
+  flex: 1;
+  min-width: 0;
+}
+.items li.empty {
+  color: var(--pencil);
+  font-style: italic;
+}
+.kind {
+  color: var(--pencil);
+  font-size: 14px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+/* × from the picture to delete one memory. */
+.del {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 0;
+  opacity: 0.45;
+}
+.del img {
+  width: 100%;
+}
+li:hover .del,
+.link:hover .del,
+.entity-head:hover .del,
+.del:focus-visible {
+  opacity: 1;
+}
+.del:hover {
+  background: rgba(38, 38, 36, 0.1);
+}
+.graph {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.entity-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 19px;
+}
+.entity-head .name {
+  flex: 1;
+}
+.entity .links {
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.entity .link {
+  font-size: 16px;
+  color: var(--pencil);
+}

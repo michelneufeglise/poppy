@@ -4,7 +4,7 @@ import { unlink } from 'node:fs'
 import type { VoiceInfo } from '../shared/types'
 import type { Kokoro } from './kokoro'
 
-/** How many sentences Kokoro prepares ahead of the one playing (Persephone's PREFETCH). */
+/** How many sentences Kokoro prepares ahead of the one playing. */
 const PREFETCH = 2
 /** Give up on Kokoro for a sentence after this long and say it with the Mac voice instead. */
 const KOKORO_WAIT_MS = 20_000

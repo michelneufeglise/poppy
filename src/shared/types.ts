@@ -29,7 +29,7 @@ export const MOODS = [
 ] as const
 export type Mood = (typeof MOODS)[number]
 
-/** English Kokoro voices, the same catalog Persephone uses (Kokoro has no Dutch). */
+/** English Kokoro voices (Kokoro has no Dutch). */
 export const KOKORO_VOICES = [
   { id: 'af_heart', label: 'Heart (US, warm)' },
   { id: 'af_bella', label: 'Bella (US, bright, playful)' },
@@ -71,6 +71,10 @@ export interface Settings {
   longReplies: 'summary' | 'full'
   sleepAfterMinutes: number
   position: { x: number; y: number } | null
+  /** Learn from chats (facts, knowledge graph, lessons). What's already known is still used when off. */
+  memoryEnabled: boolean
+  /** Ollama embedding model for memory search. Without one, memory search falls back to keywords. */
+  embedModel: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -85,7 +89,9 @@ export const DEFAULT_SETTINGS: Settings = {
   rate: 185,
   longReplies: 'summary',
   sleepAfterMinutes: 10,
-  position: null
+  position: null,
+  memoryEnabled: true,
+  embedModel: 'nomic-embed-text'
 }
 
 export interface ChatUpdate {
@@ -94,6 +100,8 @@ export interface ChatUpdate {
   text: string
   mood: Mood | null
   done: boolean
+  /** A fixed answer (like after "forget that"): no good / not quite links under it. */
+  noRating?: boolean
 }
 
 export interface ChatError {
@@ -123,4 +131,35 @@ export interface AttachmentInfo {
 export interface AttachResult {
   added: AttachmentInfo[]
   refused: { name: string; reason: string }[]
+}
+
+/** A chat message restored from Poppy's memory when he starts. */
+export interface PastMessage {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export interface MemoryStats {
+  facts: number
+  lessons: number
+  entities: number
+  relations: number
+  messages: number
+  /** Whether memory search uses embeddings ('ok'), keywords only ('missing'), or hasn't been tried yet. */
+  embeddings: 'ok' | 'missing' | 'unknown'
+  learning: boolean
+}
+
+/** Everything Poppy knows, for the memory window. */
+export interface MemorySnapshot {
+  stats: MemoryStats
+  facts: { id: number; text: string; kind: string; confidence: number }[]
+  lessons: { id: number; text: string }[]
+  notebook: string[]
+  entities: {
+    id: number
+    name: string
+    type: string
+    links: { id: number; text: string }[]
+  }[]
 }

@@ -1,5 +1,16 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
-import type { AttachResult, ChatError, ChatUpdate, KokoroStatus, Settings, SpeechLang, VoiceInfo } from '../shared/types'
+import type {
+  AttachResult,
+  ChatError,
+  ChatUpdate,
+  KokoroStatus,
+  MemorySnapshot,
+  MemoryStats,
+  PastMessage,
+  Settings,
+  SpeechLang,
+  VoiceInfo
+} from '../shared/types'
 
 function on<T>(channel: string, cb: (value: T) => void): () => void {
   const handler = (_e: IpcRendererEvent, value: T): void => cb(value)
@@ -36,6 +47,22 @@ const api = {
   onChatSpoken: (cb: (id: number) => void) => on('chat:spoken', cb),
   onChatError: (cb: (e: ChatError) => void) => on('chat:error', cb),
   onSpeaking: (cb: (speaking: boolean) => void) => on('voice:speaking', cb),
+  /** The last conversation, to show again after a restart. */
+  chatHistory: () => ipcRenderer.invoke('chat:history') as Promise<PastMessage[]>,
+  /** The "good" / "not quite" links under Poppy's reply. */
+  rateReply: (replyId: number, value: 'good' | 'not_quite') => ipcRenderer.send('chat:rate', replyId, value),
+  onForgotAll: (cb: () => void) => on('ui:forgot-all', cb),
+
+  // memory
+  openMemory: () => ipcRenderer.send('memory:open'),
+  closeMemory: () => ipcRenderer.send('memory:close'),
+  memorySnapshot: () => ipcRenderer.invoke('memory:snapshot') as Promise<MemorySnapshot | null>,
+  memoryStats: () => ipcRenderer.invoke('memory:stats') as Promise<MemoryStats | null>,
+  deleteMemory: (what: 'fact' | 'entity' | 'relation' | 'rule', id: number) => ipcRenderer.send('memory:delete', what, id),
+  forgetEverything: () => ipcRenderer.invoke('memory:forget-all') as Promise<boolean>,
+  reflectNow: () => ipcRenderer.invoke('memory:reflect') as Promise<unknown>,
+  onMemoryChanged: (cb: (stats: MemoryStats) => void) => on('memory:changed', cb),
+  listEmbedModels: (url?: string) => ipcRenderer.invoke('ollama:embed-models', url) as Promise<string[]>,
 
   // settings
   getSettings: () => ipcRenderer.invoke('settings:get') as Promise<Settings>,

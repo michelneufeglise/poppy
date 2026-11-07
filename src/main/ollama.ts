@@ -100,15 +100,16 @@ function readError(text: string): string {
   }
 }
 
-/** One short, non-streaming reply (used for the spoken wrap-up). */
+/** One short, non-streaming reply (the spoken wrap-up, and Poppy's learning and reflection). */
 export async function chatOnce(
   baseUrl: string,
   model: string,
   messages: ChatMessage[],
   signal: AbortSignal,
-  options: Record<string, unknown> = {}
+  options: Record<string, unknown> = {},
+  extra: Record<string, unknown> = {}
 ): Promise<string> {
-  const body: Record<string, unknown> = { model, messages, stream: false, think: false, keep_alive: '30m', options }
+  const body: Record<string, unknown> = { model, messages, stream: false, think: false, keep_alive: '30m', options, ...extra }
   const post = (): Promise<Response> =>
     fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
@@ -126,4 +127,26 @@ export async function chatOnce(
   if (!res.ok) throw new OllamaError(readError(await res.text()))
   const data = (await res.json()) as { message?: { content?: string } }
   return data.message?.content?.trim() ?? ''
+}
+
+/** Embeddings for some texts (one vector each), from an Ollama embedding model. */
+export async function embed(baseUrl: string, model: string, texts: string[], signal?: AbortSignal): Promise<number[][]> {
+  const res = await fetch(`${baseUrl}/api/embed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, input: texts, keep_alive: '30m' }),
+    signal
+  })
+  if (!res.ok) throw new OllamaError(readError(await res.text()))
+  const data = (await res.json()) as { embeddings?: number[][] }
+  if (!Array.isArray(data.embeddings) || data.embeddings.length !== texts.length) throw new OllamaError('No embeddings returned')
+  return data.embeddings
+}
+
+/** Embedding models that are installed (names with "embed" in them, plus the well-known ones). */
+export async function listEmbedModels(baseUrl: string): Promise<string[]> {
+  const res = await fetch(`${baseUrl}/api/tags`)
+  if (!res.ok) throw new OllamaError(`Ollama returned ${res.status}`)
+  const data = (await res.json()) as { models?: { name: string }[] }
+  return (data.models ?? []).map((m) => m.name).filter((n) => /embed|bge|minilm|e5-/i.test(n))
 }

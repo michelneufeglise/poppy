@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws:"
+    />
+    <title>Poppy's memory</title>
+    <link rel="stylesheet" href="./header.css" />
+    <link rel="stylesheet" href="./settings.css" />
+    <link rel="stylesheet" href="./memory.css" />
+  </head>
+  <body>
+    <!-- Same paper window as settings: every pencil piece is cut from docs/design/chat-window.jpg. -->
+    <div class="window">
+      <div class="paper"></div>
+      <header class="art-header head">
+        <img src="../../assets/chat/header.png" alt="Poppy" draggable="false" />
+        <button id="minimize" class="hot min" type="button" aria-label="Close memory" title="Close memory"></button>
+        <button id="close" class="hot close" type="button" aria-label="Close memory" title="Close memory"></button>
+        <span class="hot gear inert" aria-hidden="true"></span>
+        <span class="hot menu inert" aria-hidden="true"></span>
+      </header>
+
+      <main class="scroll">
+        <h1>Memory</h1>
+        <p id="summary" class="hint"></p>
+        <label class="check"><input id="memory-on" type="checkbox" /> Learn from our chats</label>
+
+        <section>
+          <h2>About you</h2>
+          <ul id="facts" class="items"></ul>
+        </section>
+        <hr />
+
+        <section>
+          <h2>Poppy's notebook</h2>
+          <p class="hint">Rules Poppy wrote for himself from your feedback.</p>
+          <ul id="notebook" class="items"></ul>
+          <h3>Lessons</h3>
+          <ul id="lessons" class="items"></ul>
+        </section>
+        <hr />
+
+        <section>
+          <h2>People and things</h2>
+          <div id="graph" class="graph"></div>
+        </section>
+        <hr />
+
+        <section>
+          <div class="row">
+            <button id="reflect" class="btn" type="button">Tidy up now</button>
+            <button id="forget-all" class="btn" type="button">Forget everything</button>
+          </div>
+          <p id="note" class="hint"></p>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="./memory.ts"></script>
+  </body>
+</html>

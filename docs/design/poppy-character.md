@@ -48,6 +48,8 @@ The chat window is the user's own picture, [chat-window.jpg](chat-window.jpg), u
 - Not used (user's choice): the mic and smiley icons from the picture. Attaching is a handwritten "attach" link in Patrick Hand, plus drag-and-drop onto the balloon.
 - Still cut from the picture but used only by the settings window: the frame, paper tile, `header.png` (Poppy head, POPPY, –, ×, gear, ≡) and the pencil lines.
 - The settings window uses the same pieces: frame, paper, the same header (× and – close settings; gear and menu do nothing there), pencil lines between sections, the input box drawing around fields and dropdowns, and `button.png` (the Send button with its word erased) for buttons. The picture has no checkbox or slider drawing, so those are the normal controls in graphite.
+- The memory window is a third paper window built from the same pieces as settings (frame, header, pencil lines, input box, `button.png`), with × next to each memory in Patrick Hand. Nothing new is drawn.
+- The "good" / "not quite" feedback under Poppy's latest reply is handwritten text in Patrick Hand (faint until hovered), not a drawing. If the user wants drawn icons for these, ask for a picture.
 
 ## Menu-bar icon
 Made by `scripts/cut_sheet.py` from the idle drawing: its silhouette as a macOS template image, with the drawing's own pupils cut out as holes so it reads as Poppy's face at 18 px. Nothing is redrawn.

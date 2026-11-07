@@ -2,7 +2,7 @@
 
 **A hand-drawn desk buddy for macOS that talks with your local Ollama models.**
 
-Poppy is a small pencil-drawn character who sits on your desktop. Click him and a big comic speech balloon pops up above him: that's where you chat. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. Everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking.
+Poppy is a small pencil-drawn character who sits on your desktop. Click him and a big comic speech balloon pops up above him: that's where you chat. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. And he keeps learning: he remembers what you tell him, builds a small map of the people and things in your life, and learns from your feedback how you like to be answered. Everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking.
 
 ![Poppy on the desktop, the chat balloon and the settings window](docs/screenshots/overview.png)
 
@@ -16,6 +16,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - [First start](#first-start)
 - [Using Poppy](#using-poppy)
 - [Attachments](#attachments)
+- [Memory: how Poppy learns](#memory-how-poppy-learns)
 - [Voices and languages](#voices-and-languages)
 - [Settings](#settings)
 - [Privacy](#privacy)
@@ -33,6 +34,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 12 poses, all hand-drawn.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
+- **Remembers and learns.** Facts about you, a knowledge graph of the people and things you mention, and lessons from your feedback. You can see and delete all of it.
 - **Falls asleep** after 10 minutes of quiet and wakes up when you hover over him.
 - **Stays out of the way.** No Dock icon; a small menu-bar icon has everything else.
 
@@ -48,6 +50,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 | **Node.js 20 or newer** | Yes | Only to build and run Poppy from source. [nodejs.org](https://nodejs.org) |
 | **Ollama** with at least one chat model | Yes | [ollama.com/download](https://ollama.com/download) |
 | **Python 3 + `kokoro-onnx`** | Optional | For the Kokoro English voice. Without it, Poppy uses a Mac voice. |
+| **`nomic-embed-text`** in Ollama | Recommended | For Poppy's memory search. Without it, memory still works but searches by keywords. |
 
 **Which model?** Poppy's default is `qwen3.6:35b-a3b` (about 23 GB, needs a Mac with 32 GB of memory or more). It also understands pictures. On a smaller Mac, a small model works fine for chatting:
 
@@ -67,7 +70,13 @@ If the default isn't installed, Poppy picks the best model you do have. You can 
 ollama pull qwen3.6:35b-a3b
 ```
 
-(or one of the smaller models above). Make sure Ollama is running: the Ollama app in the menu bar, or `ollama serve` in a terminal.
+(or one of the smaller models above). For Poppy's memory, also pull the small embedding model (274 MB):
+
+```bash
+ollama pull nomic-embed-text
+```
+
+Make sure Ollama is running: the Ollama app in the menu bar, or `ollama serve` in a terminal.
 
 **2. Optional: install Kokoro for the natural English voice**
 
@@ -118,6 +127,9 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | Turn the voice on or off | The **≡** menu → Voice, or the menu-bar icon |
 | Open settings | The gear at the top of the balloon, or the menu-bar icon → Settings… |
 | Put Poppy back in the corner | Menu-bar icon → Reset position |
+| Tell Poppy an answer was good, or not | Click **good** or **not quite** under his latest reply |
+| See what Poppy knows | Ask "what do you know about me?", or the **≡** menu → Memory… |
+| Undo what he just learned | Say "forget that" |
 
 While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, *talking* while he speaks, and then the mood the model picked. While the chat is open, the name of the current state is written next to his feet.
 
@@ -135,6 +147,21 @@ Click **attach** in the balloon, choose **Attach file…** from the ≡ menu, or
 Limits: up to **5 files** per message and **20 MB** per file. Very long text is cut at about 60,000 characters per file (and 120,000 per message), and Poppy is told it was cut. For long files, Poppy asks Ollama for a bigger context window automatically.
 
 Pictures are sent only with the message they belong to; the text of files stays part of the conversation, so you can ask follow-up questions about them.
+
+## Memory: how Poppy learns
+
+Poppy can't retrain his language model (Ollama runs models, it doesn't train them). Instead he learns the way a good assistant does: he keeps a memory of what you tell him and feeds it back into every reply. The chat itself is the feedback loop.
+
+1. **Recall, before he answers.** Poppy looks up what fits your message: facts about you, related people and things from his knowledge graph, and his own notebook of rules. A short note with those goes into his instructions. (This takes a few tens of milliseconds.)
+2. **Learn, after he answers.** Once he has finished talking, his own model reads the exchange and writes down what's worth keeping: facts ("The user works as a designer at Acme"), people, places and projects, and how they're linked ("Lisa — sister of → you"). When something you say makes an older fact untrue, the old one is switched off.
+3. **Feedback.** Click **good** or **not quite** under a reply, or simply correct him ("no, I meant…", "too long"). Poppy turns that into a lesson about how you like to be answered.
+4. **Reflect, when it's quiet.** After 10 quiet minutes (at most once an hour) he tidies up: merges duplicate facts and names, lets facts that never come up slowly fade, and rewrites his **notebook**, a short list of rules for himself that's part of every reply.
+
+Your conversation is saved too, so after a restart the balloon shows where you left off.
+
+**You stay in control.** The **Memory** window (≡ menu → Memory…, or Settings → Open memory…) lists everything Poppy knows: facts about you, his notebook and lessons, and the people and things with their links. Click the × next to anything to delete it. **Tidy up now** runs the reflection straight away, and **Forget everything** wipes all chats and memories. **Learn from our chats** (in the Memory window and Settings) pauses learning; what he already knows is still used.
+
+Everything is stored in one file on your Mac: `~/Library/Application Support/poppy/memory.db`. Learning and recall use only your own Ollama.
 
 ## Voices and languages
 
@@ -167,6 +194,8 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Dutch Mac voice | Default Xander. |
 | Mac voice speed | Speed for all Mac voices. |
 | Fall asleep after | Minutes of quiet before Poppy dozes off. Default 10. |
+| Learn from our chats | Memory learning on or off. |
+| Memory search model | The Ollama embedding model for memory search. Default `nomic-embed-text`; "None" searches by keywords. |
 
 Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 
@@ -175,7 +204,7 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 - **Everything stays on your Mac.** Poppy only talks to the Ollama address in Settings (your own computer by default).
 - The only download is Kokoro's voice model from GitHub, once, on first start.
 - Files you attach are read on your Mac and sent only to your Ollama. Poppy only reads files you pick or drop yourself.
-- The conversation is kept in memory only (the last 20 messages) and is gone when Poppy quits.
+- Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
 - No analytics, no telemetry, no accounts.
 
 ## Troubleshooting
@@ -189,6 +218,8 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 | No sound at all | Check that "Speak replies out loud" is on, and your Mac's volume. |
 | The first reply is slow | Normal: Ollama is loading the model. Next replies are fast. |
 | Poppy is gone | Menu-bar icon → Show Poppy, or Reset position. |
+| Settings says the memory search model isn't installed | Run `ollama pull nomic-embed-text`. Until then Poppy searches his memory by keywords. |
+| Poppy remembered something wrong | Open the Memory window and click the × next to it, or say "forget that" right after. |
 
 ## For developers
 
@@ -203,7 +234,8 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npm run dev` | Run with hot reload |
 | `npm run build` | Build into `out/` |
 | `npx electron .` | Start the built app |
-| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules) |
+| `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
+| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's poses from the emotion sheet |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
@@ -219,10 +251,11 @@ src/
     kokoro.ts      talks to the Kokoro helper process
     summary.ts     spoken wrap-up for long replies
     attachments.ts reads attached files (images, PDFs, text)
+    memory/        Poppy's memory: database (db.ts) and the recall / learn / reflect loop (index.ts)
     settings.ts    settings.json
   preload/     the window.poppy bridge
-  renderer/    the Poppy window (with the chat balloon) and the settings window
-  shared/      types and pure logic (mood tags, speech text, attachment rules)
+  renderer/    the Poppy window (with the chat balloon), the settings window and the memory window
+  shared/      types and pure logic (mood tags, speech text, attachment rules, memory)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
 scripts/
@@ -246,14 +279,15 @@ The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see
 
 ### How a reply works
 
-1. Your message (plus any files) goes to Ollama with a short system prompt that asks the model to start with a mood tag like `[happy]`.
+1. Your message (plus any files) goes to Ollama with a short system prompt that asks the model to start with a mood tag like `[happy]`, plus what Poppy remembers that fits.
 2. The reply streams in. Poppy strips the mood tag, any `<think>` blocks, markdown and emoji for the bubble, and switches to the mood's drawing.
 3. Finished sentences go to the speech queue straight away. Kokoro renders two sentences ahead, so there are no gaps between them.
+4. When he's done talking, the exchange is saved and Poppy learns from it in the background.
 
 ## Roadmap
 
-- **Memory:** remember conversations and facts about you between sessions (SQLite with local embeddings).
-- **Reflection:** a quiet nightly pass where Poppy tidies up what he learned.
+- **A graph view** of the people and things Poppy knows, in the memory window.
+- **Training data export:** good exchanges as a dataset, to fine-tune a small model on your Mac with Apple's MLX.
 - **Co-worker tools:** help with Mail and files in folders you allow, always asking before he sends, moves or deletes anything.
 - **Voice input:** talk to Poppy instead of typing.
 - **A real `.app`** you can drag into Applications.
@@ -265,4 +299,3 @@ The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see
 - **Font:** [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand) by Patrick Wagesreiter, SIL Open Font License 1.1 ([`assets/fonts/OFL.txt`](assets/fonts/OFL.txt)).
 - **Voice:** [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad, run through [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) by thewh1teagle.
 - **PDF reading:** [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla.
-- **Speech pipeline:** the voice handling (language detection, read-along and spoken wrap-up) is adapted from Persephone, an earlier assistant project by the same author.

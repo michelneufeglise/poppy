@@ -1,5 +1,5 @@
 /**
- * Turning a reply into text worth saying. Ported from Persephone's server/speech_summary.py:
+ * Turning a reply into text worth saying:
  * the clean-up rules, the stopword language detection and the word caps.
  */
 import type { SpeechLang } from './types'
@@ -11,7 +11,7 @@ const DUTCH_PLACEHOLDERS: Record<string, string> = {
   [TABLE_SENTENCE]: 'Er staat een tabel in de chat.'
 }
 
-/** Below this many words Poppy reads everything (Persephone's PASSTHROUGH_MAX_WORDS). */
+/** Below this many words Poppy reads everything. */
 export const READ_ALONG_WORDS = 40
 /** A rest this short is just read out instead of summarized. */
 export const SHORT_REST_WORDS = 20
@@ -139,7 +139,7 @@ const STOPWORDS: Record<string, Set<string>> = {
   es: new Set(['el', 'la', 'los', 'las', 'y', 'es', 'que', 'para', 'una', 'con', 'por', 'del', 'no', 'se'])
 }
 
-/** Persephone's detect_language: stopword counts, only when there's enough text to be sure. */
+/** Language by stopword counts, only when there's enough text to be sure. */
 export function detectLanguage(text: string): string | null {
   const words = (text.toLowerCase().match(/[a-zà-öø-ÿ]+/g) ?? []).slice(0, 600)
   if (words.length < 8) return null
@@ -182,7 +182,7 @@ export function pickLanguage(reply: string, userText: string, previous: SpeechLa
 const FILLER =
   /^(?:(?:great|good|excellent|nice)\s+(?:question|advice|plan|idea)[!.]\s*|sure[!,.]\s*|here(?:'s|’s| is) (?:a |the )?(?:short |brief |spoken )?(?:summary|version)[^:.!]*[:.!]\s*)+/i
 
-/** Tidy the summary model's output (Persephone's _postprocess_summary). */
+/** Tidy the summary model's output. */
 export function tidySummary(raw: string): string {
   let s = raw.trim().replace(/^["“”']+|["“”']+$/g, '').trim()
   s = s.replace(/^(?:spoken(?: version| wrap-up)?|summary|wrap-up)\s*:\s*/i, '')

@@ -480,3 +480,32 @@ img {
 .send:active {
   transform: translateY(1px);
 }
+
+/* "good" / "not quite" under Poppy's latest reply. */
+.rate {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--pencil);
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+.msg.bot:hover .rate,
+.rate:focus-within {
+  opacity: 1;
+}
+.rate button {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  padding: 0 3px;
+  border-radius: 6px;
+}
+.rate button:hover {
+  color: var(--ink);
+  background: rgba(38, 38, 36, 0.07);
+}
+.rate .thanks {
+  font-style: italic;
+}

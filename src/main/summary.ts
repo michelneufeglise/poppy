@@ -3,7 +3,7 @@ import { tidySummary, SUMMARY_CAP_WORDS } from '../shared/speech'
 import type { SpeechLang } from '../shared/types'
 import { chatOnce } from './ollama'
 
-/** If the wrap-up takes longer than this, Poppy says the fallback line instead (Persephone uses 8 s too). */
+/** If the wrap-up takes longer than this, Poppy says the fallback line instead. */
 const TIMEOUT_MS = 8000
 
 const FALLBACK: Record<SpeechLang, string> = {
@@ -11,7 +11,7 @@ const FALLBACK: Record<SpeechLang, string> = {
   nl: 'De rest staat in de chat.'
 }
 
-/** Adapted from Persephone's SUMMARY_SYSTEM_PROMPT: Poppy has already read the start out loud. */
+/** Poppy has already read the start out loud; the model sums up the rest. */
 const SYSTEM = `You turn the rest of a written answer into a very short SPOKEN wrap-up for text-to-speech.
 You are not replying to the answer: you ARE Poppy, who wrote it, and you already said the first part out loud.
 Rules:

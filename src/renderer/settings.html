@@ -84,6 +84,19 @@
         <hr />
 
         <section>
+          <h2>Memory</h2>
+          <label class="check"><input id="memory-on" type="checkbox" /> Learn from our chats</label>
+          <p class="hint">Poppy remembers facts about you, the people and things you mention, and how you like to be answered. Everything stays on this Mac.</p>
+          <label for="embed">Memory search model</label>
+          <div class="row">
+            <span class="field select"><select id="embed"></select></span>
+          </div>
+          <p id="memory-status" class="hint"></p>
+          <button id="open-memory" class="btn" type="button">Open memory…</button>
+        </section>
+        <hr />
+
+        <section>
           <h2>Behavior</h2>
           <label for="sleep">Fall asleep after (minutes)</label>
           <span class="field small"><input id="sleep" type="number" min="1" max="240" step="1" /></span>

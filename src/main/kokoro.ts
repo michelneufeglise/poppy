@@ -3,19 +3,17 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { constants, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, statSync } from 'node:fs'
 import { copyFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { KokoroStatus } from '../shared/types'
 
 const MODEL_FILES = ['kokoro-v1.0.onnx', 'voices-v1.0.bin']
 /**
- * Folders that may already hold the same model files (set POPPY_KOKORO_DIR to point at your own copy).
- * When one has them they are copied once, so Poppy runs on its own; otherwise the sidecar downloads them.
+ * Optional: a folder that already holds the model files (POPPY_KOKORO_DIR). They are copied once;
+ * without it the sidecar downloads them from the kokoro-onnx releases on GitHub.
  */
-const EXISTING_MODEL_DIRS = [process.env.POPPY_KOKORO_DIR, join(homedir(), '.persephone/kokoro')].filter(
-  (dir): dir is string => !!dir
-)
+const OWN_COPY_DIR = process.env.POPPY_KOKORO_DIR
 const PYTHONS = ['/opt/homebrew/bin/python3', '/usr/local/bin/python3', '/usr/bin/python3']
 const RESTART_AFTER_MS = 30_000
 
@@ -74,7 +72,7 @@ export class Kokoro extends EventEmitter {
     const python = PYTHONS.find((p) => existsSync(p))
     if (!python) throw new Error('Python 3 is not installed (looked in Homebrew and /usr/bin).')
     const modelDir = join(app.getPath('userData'), 'kokoro')
-    await this.copyFromPersephone(modelDir)
+    await this.copyOwnFiles(modelDir)
 
     this.setStatus('starting', 'Loading Kokoro…')
     const script = join(app.getAppPath(), 'sidecar/kokoro_tts.py')
@@ -122,14 +120,15 @@ export class Kokoro extends EventEmitter {
     })
   }
 
-  private async copyFromPersephone(modelDir: string): Promise<void> {
+  private async copyOwnFiles(modelDir: string): Promise<void> {
     mkdirSync(modelDir, { recursive: true })
+    if (!OWN_COPY_DIR) return
     for (const name of MODEL_FILES) {
       const target = join(modelDir, name)
       if (bigFile(target)) continue
-      const source = EXISTING_MODEL_DIRS.map((d) => join(d, name)).find(bigFile)
-      if (!source) continue // the sidecar downloads it instead
-      this.setStatus('copying', "Copying Kokoro from Persephone…")
+      const source = join(OWN_COPY_DIR, name)
+      if (!bigFile(source)) continue // the sidecar downloads it instead
+      this.setStatus('copying', 'Copying the Kokoro voice files…')
       // On APFS this is a clone: instant and no extra disk space until one copy changes.
       await copyFile(source, `${target}.part`, constants.COPYFILE_FICLONE)
       renameSync(`${target}.part`, target)

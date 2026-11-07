@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, Tray } from 'electron'
 import { join } from 'node:path'
 import { composeMessage, contextSize } from '../shared/attachments'
+import { isForgetRequest } from '../shared/memory'
 import { parseReply, splitReply, takeSentences } from '../shared/reply'
 import {
   localize,
@@ -10,10 +11,11 @@ import {
   speechView,
   wordCount
 } from '../shared/speech'
-import { DEFAULT_SETTINGS, type ChatError, type ChatUpdate, type Settings, type SpeechLang } from '../shared/types'
+import { DEFAULT_SETTINGS, type ChatError, type ChatUpdate, type PastMessage, type Settings, type SpeechLang } from '../shared/types'
 import { addFiles, forget, loadFiles } from './attachments'
+import { Memory } from './memory'
 import { Kokoro } from './kokoro'
-import { canSee, listModels, OllamaError, pickDefaultModel, streamChat, type ChatMessage } from './ollama'
+import { canSee, listEmbedModels, listModels, OllamaError, pickDefaultModel, streamChat, type ChatMessage } from './ollama'
 import { getSettings, onSettingsChanged, updateSettings } from './settings'
 import { spokenWrapUp } from './summary'
 import { listVoices, Voice, type Speech } from './voice'
@@ -34,6 +36,7 @@ Example: "[happy] Nice, that worked!" Never use any other tags.`
 
 let buddy: BrowserWindow | null = null
 let settingsWin: BrowserWindow | null = null
+let memoryWin: BrowserWindow | null = null
 let tray: Tray | null = null
 const kokoro = new Kokoro()
 const voice = new Voice(kokoro)
@@ -42,6 +45,13 @@ let history: ChatMessage[] = []
 let replyId = 0
 let current: AbortController | null = null
 let chatOpen = false
+/** Poppy's memory (his own database in the data folder). Created when the app is ready. */
+let memory: Memory | null = null
+let conversationId = 0
+/** Reply ids (per chat turn) → their message ids in memory, for the good / not quite links. */
+const replyMessages = new Map<number, number>()
+/** True from the moment a message comes in until Poppy has finished speaking: learning waits. */
+let chatBusy = false
 /** How far the window had to move down to fit on screen when the chat opened (undone when it closes). */
 let pushedDown = 0
 
@@ -130,17 +140,12 @@ function placeBuddy(p: { x: number; y: number }): void {
   buddy.setBounds({ x: p.x, y: p.y - (h - BUDDY_H), width: BUDDY_W, height: h })
 }
 
-function openSettings(): void {
-  if (settingsWin && !settingsWin.isDestroyed()) {
-    settingsWin.show()
-    settingsWin.focus()
-    return
-  }
-  // A paper window like the chat: no Mac title bar, the pencil frame is part of the page.
-  settingsWin = new BrowserWindow({
+/** A paper window like the chat: no Mac title bar, the pencil frame is part of the page. */
+function paperWindow(title: string, page: string): BrowserWindow {
+  const win = new BrowserWindow({
     width: 440,
     height: 700,
-    title: 'Poppy settings',
+    title,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -152,16 +157,37 @@ function openSettings(): void {
     show: false,
     webPreferences: { preload: preload(), contextIsolation: true, sandbox: true }
   })
-  settingsWin.once('ready-to-show', () => {
-    settingsWin?.show()
+  win.once('ready-to-show', () => {
+    win.show()
     app.focus({ steal: true })
   })
+  load(win, page)
+  return win
+}
+
+function openSettings(): void {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.show()
+    settingsWin.focus()
+    return
+  }
+  settingsWin = paperWindow('Poppy settings', 'settings.html')
   settingsWin.on('closed', () => (settingsWin = null))
-  load(settingsWin, 'settings.html')
+}
+
+/** Everything Poppy learned, where the user can look at it and delete things. */
+function openMemory(): void {
+  if (memoryWin && !memoryWin.isDestroyed()) {
+    memoryWin.show()
+    memoryWin.focus()
+    return
+  }
+  memoryWin = paperWindow("Poppy's memory", 'memory.html')
+  memoryWin.on('closed', () => (memoryWin = null))
 }
 
 function sendAll(channel: string, payload?: unknown): void {
-  for (const win of [buddy, settingsWin]) {
+  for (const win of [buddy, settingsWin, memoryWin]) {
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
   }
 }
@@ -208,6 +234,7 @@ function updateTrayMenu(): void {
       },
       { label: `Model: ${s.model || 'picked automatically'}`, enabled: false },
       { label: 'Settings…', click: openSettings },
+      { label: 'Memory…', click: openMemory },
       {
         label: 'Reset position',
         click: () => {
@@ -249,6 +276,7 @@ function stopReply(): void {
   current?.abort()
   current = null
   voice.stop()
+  chatBusy = false
 }
 
 /** An error whose message is already written for the user. */
@@ -264,6 +292,15 @@ function friendlyError(err: unknown, model: string): string {
   return `Something went wrong: ${msg}`
 }
 
+/** A fixed reply without asking the model (e.g. after "forget that"). */
+async function replyDirect(id: number, text: string, mood: ChatUpdate['mood']): Promise<void> {
+  const s = getSettings()
+  sendBuddy('chat:update', { id, text, mood, done: true, noRating: true } satisfies ChatUpdate)
+  if (s.voiceEnabled) voice.speak(speechFor(text, lastLang, s))
+  await voice.whenIdle()
+  if (id === replyId) sendBuddy('chat:spoken', id)
+}
+
 async function runChat(text: string, attachmentIds: string[] = []): Promise<void> {
   stopReply()
   const id = replyId
@@ -271,8 +308,24 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
   current = ctrl
   const s = getSettings()
   let model = s.model
+  let userMsgId: number | null = null
+  chatBusy = true
+  memory?.touch()
 
   try {
+    // "Forget that": undo what Poppy learned from the last exchange.
+    if (memory && !attachmentIds.length && isForgetRequest(text)) {
+      const n = memory.forgetLatest(conversationId)
+      const answer = n
+        ? lastLang === 'nl'
+          ? 'Oké, dat ben ik vergeten.'
+          : "Okay, I've forgotten that."
+        : lastLang === 'nl'
+          ? 'Ik had daar nog niets van onthouden.'
+          : "I hadn't remembered anything from that."
+      await replyDirect(id, answer, 'happy')
+      return
+    }
     // No model chosen yet, or still the default but it isn't installed here: use the best one that is.
     const defaultMissing = model === DEFAULT_SETTINGS.model && !(await listModels(s.ollamaUrl)).includes(model)
     if (!model || defaultMissing) {
@@ -287,8 +340,19 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
       throw new PoppyError(`My model ${model} can't look at pictures. Pick one that can, like qwen3.6:35b-a3b, in settings.`)
     }
     if (id !== replyId) return
-    history.push({ role: 'user', content: loaded.files.length ? composeMessage(text, loaded.files) : text })
+    const content = loaded.files.length ? composeMessage(text, loaded.files) : text
+    history.push({ role: 'user', content })
     if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY)
+    const display = [text.trim(), ...loaded.files.map((f) => `(attached: ${f.name})`)].filter(Boolean).join('\n')
+    userMsgId = memory?.store.addMessage(conversationId, 'user', content, display) ?? null
+    // What Poppy remembers that fits this message goes into his instructions.
+    let note = ''
+    try {
+      note = memory ? await memory.recall(text || display) : ''
+    } catch (err) {
+      console.warn('[memory] recall failed:', err instanceof Error ? err.message : err)
+    }
+    if (id !== replyId) return
     let raw = ''
     let reply = parseReply('')
     let view = ''
@@ -310,7 +374,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
       }
     }
 
-    const messages: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }, ...history]
+    const messages: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT + note }, ...history]
     if (loaded.images.length) messages[messages.length - 1] = { ...messages.at(-1)!, images: loaded.images }
     const chars = messages.reduce((n, m) => n + m.content.length, 0)
     const numCtx = contextSize(chars, loaded.images.length)
@@ -328,7 +392,10 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     }
     if (id !== replyId) return
     sendBuddy('chat:update', { id, text: reply.text, mood: reply.mood, done: true } satisfies ChatUpdate)
-    history.push({ role: 'assistant', content: raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() })
+    const answer = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+    history.push({ role: 'assistant', content: answer })
+    const replyMsgId = memory?.store.addMessage(conversationId, 'assistant', answer, reply.text) ?? null
+    if (replyMsgId) replyMessages.set(id, replyMsgId)
     if (s.voiceEnabled) {
       view = speechView(splitReply(raw).body)
       speakParts(takeSentences(view, spokenTo, true).parts)
@@ -354,14 +421,42 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     }
     await voice.whenIdle()
     if (id === replyId) sendBuddy('chat:spoken', id)
+    if (replyMsgId) memory?.learnFrom(replyMsgId)
   } catch (err) {
     if (ctrl.signal.aborted || id !== replyId) return
     if (history.at(-1)?.role === 'user') history.pop()
+    if (userMsgId) memory?.store.deleteMessage(userMsgId)
     console.error('chat failed', err)
     sendBuddy('chat:error', { id, message: friendlyError(err, model) } satisfies ChatError)
   } finally {
     if (current === ctrl) current = null
+    if (id === replyId) chatBusy = false
+    memory?.touch()
   }
+}
+
+// ---------- memory ----------
+
+function startMemory(): void {
+  try {
+    memory = new Memory({ file: join(app.getPath('userData'), 'memory.db'), settings: getSettings, busy: () => chatBusy })
+  } catch (err) {
+    console.error('Memory could not start; Poppy carries on without it.', err)
+    return
+  }
+  conversationId = memory.store.latestConversation()
+  history = memory.store.recentMessages(conversationId, MAX_HISTORY).map((m) => ({ role: m.role, content: m.content }))
+  let pending: NodeJS.Timeout | null = null
+  const changed = (): void => {
+    // Learning can change many things at once; tell the windows once.
+    if (pending) return
+    pending = setTimeout(() => {
+      pending = null
+      if (memory) sendAll('memory:changed', memory.stats())
+    }, 300)
+  }
+  memory.store.onChange(changed)
+  memory.onStatus(changed)
 }
 
 // ---------- IPC ----------
@@ -420,6 +515,7 @@ function registerIpc(): void {
       { type: 'separator' },
       { label: 'Voice', type: 'checkbox', checked: s.voiceEnabled, click: (item) => setSettings({ voiceEnabled: item.checked }) },
       { label: 'Settings…', click: openSettings },
+      { label: 'Memory…', click: openMemory },
       { type: 'separator' },
       { label: 'Hide Poppy', click: () => buddy?.hide() },
       { label: 'Quit Poppy', click: () => app.quit() }
@@ -429,7 +525,52 @@ function registerIpc(): void {
   ipcMain.on('chat:reset', () => {
     stopReply()
     history = []
+    if (memory) conversationId = memory.store.newConversation()
   })
+  // The last conversation, shown again in the balloon after a restart.
+  ipcMain.handle('chat:history', (): PastMessage[] =>
+    memory ? memory.store.recentMessages(conversationId, MAX_HISTORY).map((m) => ({ role: m.role, text: m.display })) : []
+  )
+  ipcMain.on('chat:rate', (_e, replyId: number, value: string) => {
+    const msg = replyMessages.get(Number(replyId))
+    if (memory && msg && (value === 'good' || value === 'not_quite')) memory.feedback(msg, value)
+  })
+
+  // ---------- memory window ----------
+  ipcMain.on('memory:open', () => openMemory())
+  ipcMain.on('memory:close', () => memoryWin?.close())
+  ipcMain.handle('memory:snapshot', () => memory?.snapshot() ?? null)
+  ipcMain.handle('memory:stats', () => memory?.stats() ?? null)
+  ipcMain.on('memory:delete', (_e, what: string, id: number) => {
+    if (!memory) return
+    const n = Number(id)
+    if (what === 'fact') memory.store.deleteFact(n)
+    else if (what === 'entity') memory.store.deleteEntity(n)
+    else if (what === 'relation') memory.store.deleteRelation(n)
+    else if (what === 'rule') memory.store.setNotebook(memory.store.notebook().filter((_, i) => i !== n))
+  })
+  ipcMain.handle('memory:forget-all', async () => {
+    if (!memory) return false
+    const owner = memoryWin && !memoryWin.isDestroyed() ? memoryWin : undefined
+    const opts = {
+      type: 'warning' as const,
+      buttons: ['Forget everything', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      message: 'Forget everything?',
+      detail: 'Poppy forgets all chats, everything he learned about you, the people and things he knows, and his notebook. This cannot be undone.'
+    }
+    const { response } = owner ? await dialog.showMessageBox(owner, opts) : await dialog.showMessageBox(opts)
+    if (response !== 0) return false
+    stopReply()
+    memory.store.forgetEverything()
+    history = []
+    conversationId = memory.store.newConversation()
+    sendBuddy('ui:forgot-all')
+    return true
+  })
+  ipcMain.handle('memory:reflect', async () => (memory ? memory.reflect() : null))
+  ipcMain.handle('ollama:embed-models', async (_e, url?: string) => listEmbedModels(url || getSettings().ollamaUrl))
 
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:set', (_e, patch: Partial<Settings>) => setSettings(patch))
@@ -448,6 +589,9 @@ function registerIpc(): void {
 
 // ---------- app ----------
 
+// For testing a first start: POPPY_DATA_DIR=/some/empty/folder keeps settings, voice files and memory there.
+if (process.env.POPPY_DATA_DIR) app.setPath('userData', process.env.POPPY_DATA_DIR)
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -459,6 +603,7 @@ if (!app.requestSingleInstanceLock()) {
     voice.on('speaking', (on: boolean) => sendBuddy('voice:speaking', on))
     kokoro.on('status', (status) => sendAll('voice:kokoro-status', status))
     warmKokoro(getSettings())
+    startMemory()
     onSettingsChanged((s) => {
       sendAll('settings:changed', s)
       updateTrayMenu()
@@ -472,5 +617,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => {
     voice.stop()
     kokoro.shutdown()
+    memory?.close()
+    memory = null
   })
 }

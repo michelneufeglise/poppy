@@ -2,8 +2,7 @@
 """
 Poppy's Kokoro voice (Kokoro-82M on the ONNX runtime).
 
-Copied from Persephone's server/tts_engine.py and turned into a small sidecar
-that Poppy's main process starts once and keeps running.
+A small sidecar that Poppy's main process starts once and keeps running.
 
 Usage:  python3 kokoro_tts.py <model-dir>
 
@@ -37,7 +36,7 @@ VOICES_FILE = "voices-v1.0.bin"
 _MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
 _VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 
-# English voices from Persephone's catalog (af/am = American, bf/bm = British).
+# English Kokoro voices (af/am = American, bf/bm = British).
 VALID_VOICES = {
     "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "af_aoede",
     "am_adam", "am_michael", "am_liam", "am_puck",

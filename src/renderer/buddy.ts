@@ -206,6 +206,7 @@ let replying = false
 let latestId = -1
 let replyEl: HTMLDivElement | null = null
 let replyMood: Mood | null = null
+let rateable = true
 
 function addMessage(who: 'you' | 'poppy', text: string): HTMLDivElement {
   log.querySelector('.empty')?.remove()
@@ -215,6 +216,28 @@ function addMessage(who: 'you' | 'poppy', text: string): HTMLDivElement {
   log.appendChild(el)
   log.scrollTop = log.scrollHeight
   return el
+}
+
+/** "good" / "not quite" under Poppy's latest reply: feedback he learns from. Handwritten, no drawings added. */
+function addRating(el: HTMLElement, replyId: number): void {
+  log.querySelectorAll('.rate').forEach((r) => r.remove())
+  const box = document.createElement('span')
+  box.className = 'rate'
+  for (const [value, word] of [
+    ['good', 'good'],
+    ['not_quite', 'not quite']
+  ] as const) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.textContent = word
+    b.addEventListener('click', () => {
+      api.rateReply(replyId, value)
+      box.replaceChildren(Object.assign(document.createElement('span'), { className: 'thanks', textContent: 'thanks, noted!' }))
+      window.setTimeout(() => box.remove(), 2500)
+    })
+    box.appendChild(b)
+  }
+  el.appendChild(box)
 }
 
 function showEmpty(): void {
@@ -271,6 +294,7 @@ form.addEventListener('submit', (e) => {
   if (!text && !attached.length) return
   touch()
   input.value = ''
+  log.querySelectorAll('.rate').forEach((r) => r.remove())
   const you = addMessage('you', text || 'Have a look at this.')
   showFilesIn(you, attached)
   const ids = attached.map((a) => a.id)
@@ -448,6 +472,7 @@ api.onChatUpdate((u) => {
   if (!replying || !acceptId(u.id)) return
   touch()
   replyMood = u.mood
+  rateable = !u.noRating
   if (u.text) {
     if (state !== 'talking') setState('talking')
     if (replyEl) {
@@ -466,6 +491,7 @@ api.onChatSpoken((id) => {
   if (!replying || id !== latestId) return
   replying = false
   touch()
+  if (replyEl && rateable && !replyEl.classList.contains('error')) addRating(replyEl, id)
   const mood = replyMood && replyMood !== 'idle' ? replyMood : null
   if (mood) setState(mood, 6000, panel.hidden ? 'idle' : 'listening')
   else setState(panel.hidden ? 'idle' : 'listening')
@@ -484,6 +510,17 @@ api.onChatError((err) => {
 })
 
 api.onOpenChat(() => openPanel())
+api.onForgotAll(() => {
+  replying = false
+  replyEl = null
+  showEmpty()
+})
+
+// The last conversation, from Poppy's memory, so a restart doesn't wipe the chat.
+api.chatHistory().then((past) => {
+  if (!past.length || log.querySelector('.msg')) return
+  for (const m of past) addMessage(m.role === 'user' ? 'you' : 'poppy', m.text)
+})
 
 api.getSettings().then((s) => (sleepAfterMs = s.sleepAfterMinutes * 60_000))
 api.onSettingsChanged((s) => (sleepAfterMs = s.sleepAfterMinutes * 60_000))

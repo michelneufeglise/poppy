@@ -1,4 +1,4 @@
-import { KOKORO_VOICES, type KokoroStatus, type Settings } from '../shared/types'
+import { KOKORO_VOICES, type KokoroStatus, type MemoryStats, type Settings } from '../shared/types'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -19,6 +19,9 @@ const kokoroSpeed = $<HTMLInputElement>('kokoro-speed')
 const kokoroSpeedOut = $<HTMLSpanElement>('kokoro-speed-out')
 const kokoroStatus = $<HTMLParagraphElement>('kokoro-status')
 const dutchVoice = $<HTMLSelectElement>('dutch-voice')
+const memoryOn = $<HTMLInputElement>('memory-on')
+const embedModel = $<HTMLSelectElement>('embed')
+const memoryStatus = $<HTMLParagraphElement>('memory-status')
 
 let settings: Settings
 
@@ -91,6 +94,37 @@ function render(): void {
   kokoroSpeedOut.textContent = `(${settings.kokoroSpeed.toFixed(2)}×)`
   if (document.activeElement !== dutchVoice && dutchVoice.options.length) dutchVoice.value = settings.dutchVoice
   sleep.value = String(settings.sleepAfterMinutes)
+  memoryOn.checked = settings.memoryEnabled
+  if (document.activeElement !== embedModel && embedModel.options.length) embedModel.value = settings.embedModel
+}
+
+async function loadEmbedModels(): Promise<void> {
+  let models: string[] = []
+  try {
+    models = await api.listEmbedModels(url.value.trim())
+  } catch {
+    // Ollama not reachable: the brain section already says so.
+  }
+  embedModel.replaceChildren(option('', 'None (search by keywords)'), ...models.map((m) => option(m, m)))
+  const short = (m: string): string => m.replace(/:latest$/, '')
+  const match = models.find((m) => short(m) === short(settings.embedModel))
+  if (match) embedModel.value = match
+  else if (settings.embedModel) {
+    embedModel.append(option(settings.embedModel, `${settings.embedModel} (not installed)`))
+    embedModel.value = settings.embedModel
+  } else embedModel.value = ''
+}
+
+function showMemoryStats(st: MemoryStats | null): void {
+  if (!st) {
+    memoryStatus.textContent = "Poppy's memory couldn't start."
+    return
+  }
+  const parts = [`${st.facts} facts`, `${st.entities} people and things`, `${st.lessons} lessons`]
+  let text = `Poppy knows ${parts.join(', ')}.`
+  if (st.embeddings === 'missing') text += ` The search model isn't installed: run "ollama pull ${settings?.embedModel || 'nomic-embed-text'}". Until then Poppy searches by keywords.`
+  memoryStatus.textContent = text
+  memoryStatus.className = st.embeddings === 'missing' ? 'hint error' : 'hint'
 }
 
 async function save(patch: Partial<Settings>): Promise<void> {
@@ -120,6 +154,11 @@ kokoroVoice.addEventListener('change', () => save({ kokoroVoice: kokoroVoice.val
 kokoroSpeed.addEventListener('input', () => (kokoroSpeedOut.textContent = `(${Number(kokoroSpeed.value).toFixed(2)}×)`))
 kokoroSpeed.addEventListener('change', () => save({ kokoroSpeed: Number(kokoroSpeed.value) }))
 dutchVoice.addEventListener('change', () => save({ dutchVoice: dutchVoice.value }))
+memoryOn.addEventListener('change', () => save({ memoryEnabled: memoryOn.checked }))
+embedModel.addEventListener('change', () => save({ embedModel: embedModel.value }))
+$('open-memory').addEventListener('click', () => api.openMemory())
+api.onMemoryChanged(showMemoryStats)
+void api.memoryStats().then(showMemoryStats)
 kokoroVoice.replaceChildren(...KOKORO_VOICES.map((v) => option(v.id, v.label)))
 api.onKokoroStatus(showKokoroStatus)
 void api.getKokoroStatus().then(showKokoroStatus)
@@ -133,7 +172,7 @@ api.onSettingsChanged((s) => {
 api.getSettings().then(async (s) => {
   settings = s
   render()
-  await Promise.all([loadModels(), loadVoices()])
+  await Promise.all([loadModels(), loadVoices(), loadEmbedModels()])
 })
 
 // No Mac title bar: the drawn × and Esc close the window.
