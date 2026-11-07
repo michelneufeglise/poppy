@@ -227,3 +227,10 @@ input[type='range'] {
   text-align: center;
   margin-top: 16px;
 }
+
+.tool-server .hint {
+  margin-bottom: 2px;
+}
+.tool-server .check {
+  margin: 0 0 6px;
+}

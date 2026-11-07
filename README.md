@@ -18,6 +18,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - [Attachments](#attachments)
 - [Memory: how Poppy learns](#memory-how-poppy-learns)
 - [Claude as Poppy's brain (optional)](#claude-as-poppys-brain-optional)
+- [Tools (MCP)](#tools-mcp)
 - [Voices and languages](#voices-and-languages)
 - [Settings](#settings)
 - [Privacy](#privacy)
@@ -35,6 +36,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 48 poses, all hand-drawn: from happy and curious to grumpy, hungry and chilling with sunglasses. He also waves when you close the chat, yawns before he falls asleep, and looks spooked when he can't reach Ollama.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
+- **Uses tools.** Hook up MCP servers (files, apps, the web) and Poppy can use them while you chat. Anything that changes something waits for your yes.
 - **Remembers and learns.** Facts about you, a knowledge graph of the people and things you mention, and lessons from your feedback. You can see and delete all of it.
 - **Falls asleep** after 10 minutes of quiet and wakes up when you hover over him.
 - **Stays out of the way.** No Dock icon; a small menu-bar icon has everything else.
@@ -179,6 +181,37 @@ Poppy can answer with Claude (Haiku 5.5 by default) instead of your local model.
 
 **What goes to Anthropic** while Claude is the brain: your messages, attached files, the short memory note that goes with each message, and the exchanges Poppy learns from. Memory search (embeddings) and the voice stay on your Mac.
 
+## Tools (MCP)
+
+Poppy can use tools from [MCP](https://modelcontextprotocol.io) servers while he chats with your Ollama model: look in a folder, read a file, check something in another app. Tools are off by default.
+
+1. **Switch them on.** Settings → Tools → **Let Poppy use tools**.
+2. **Add servers.** Click **Edit tools file…**. It opens `mcp.json` in Poppy's data folder. The format is the same as [ollama-mcp-bridge](https://github.com/jonigl/ollama-mcp-bridge)'s `mcp-config.json`, so a config from there works as-is. For example, to let Poppy work in one folder:
+
+   ```json
+   {
+     "mcpServers": {
+       "files": {
+         "command": "npx",
+         "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents/Poppy"],
+         "toolFilter": { "mode": "exclude", "tools": ["move_file"] }
+       }
+     }
+   }
+   ```
+
+   A server is a local program (`command`, `args`, `env`, `cwd`) or a web address (`url`, with optional `headers`; a URL ending in `/sse` uses SSE). `toolFilter` keeps (`include`) or hides (`exclude`) tools by name. `${env:NAME}`, `${userHome}` and a leading `~/` are filled in. Add `"disabled": true` to switch one server off. Poppy restarts the servers when you save the file.
+3. **Chat.** Poppy shows a small pencil note (*used read_text_file*) and his busy pose while a tool runs.
+
+**He asks first.** A tool that the server marks as read-only runs right away. Anything else waits: Poppy asks *May I use this?* in the balloon, with the tool and what it would do, and runs it only after you click **yes**. **no**, Esc or no answer within 2 minutes means no. To skip the question for a server you trust, tick *Let … change things without asking* under that server in Settings.
+
+**Good to know:**
+- Tools work with the Ollama brain. Your model must support tools (qwen3.6 does; `ollama show <model>` lists "tools").
+- Only the chat gets tools. Learning, tidying up and the spoken wrap-up never do.
+- Per reply, Poppy can use tools in up to 5 rounds (**Tool rounds per reply**); then he answers with what he has.
+- Tools run on your Mac with your permissions, even when the Ollama address points elsewhere. Only add servers you trust.
+- While tools are on, Poppy's model answers a little cooler (temperature 0.2), because then it calls tools reliably instead of just saying it did.
+
 ## Voices and languages
 
 | Language | Voice | Notes |
@@ -215,6 +248,8 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Mac voice speed | Speed for all Mac voices. |
 | Fall asleep after | Minutes of quiet before Poppy dozes off. Default 10. |
 | Learn from our chats | Memory learning on or off. |
+| Let Poppy use tools | MCP tools on or off. Off by default. Below it: each server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
+| Tool rounds per reply | How many rounds of tool calls per reply (1–10). Default 5. |
 | Memory search model | The Ollama embedding model for memory search. Default `nomic-embed-text`; "None" searches by keywords. |
 
 Settings are stored in `~/Library/Application Support/poppy/settings.json`.
@@ -226,6 +261,7 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 - The only download is Kokoro's voice model from GitHub, once, on first start.
 - Files you attach are read on your Mac and sent only to Poppy's brain (your Ollama, or Claude when it's on). Poppy only reads files you pick or drop yourself.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
+- **Tools** (off by default) run the MCP servers you list in `mcp.json`, on your Mac. What a server does with your data is up to that server. Tools that can change things ask you first.
 - No analytics, no telemetry, and no accounts unless you add a Claude key yourself.
 
 ## Troubleshooting
@@ -242,6 +278,8 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 | Settings says the memory search model isn't installed | Run `ollama pull nomic-embed-text`. Until then Poppy searches his memory by keywords. |
 | Settings says the API key didn't work | Check that you copied the whole key (it starts with `sk-ant-`) and that your account at platform.claude.com has credit. |
 | Settings says "Last time Claude didn't answer" | Poppy used Ollama for that reply. The reason is shown (offline, a limit, no credit…). It clears after the next good Claude reply. |
+| Settings says a tool server didn't start | The reason is shown under Tools. Check the command in the tools file; a server started with `npx` or `uvx` needs Node or uv installed (Homebrew paths are added for you). |
+| Poppy says he did something but no tool ran | Make sure tools are on and the server is running (Settings → Tools), and that your model supports tools. |
 | Poppy remembered something wrong | Open the Memory window and click the × next to it, or say "forget that" right after. |
 
 ## For developers
@@ -274,7 +312,8 @@ src/
     brain.ts       who answers: Claude with the Ollama backup, or Ollama only
     claude.ts      Claude client (@anthropic-ai/sdk: streaming, JSON answers, model list)
     secrets.ts     the API key, encrypted with the Keychain (safeStorage)
-    ollama.ts      Ollama client (streaming chat, model list, image support check, embeddings)
+    ollama.ts      Ollama client (streaming chat with tools, model list, image support check, embeddings)
+    mcp.ts         MCP servers from the tools file (@modelcontextprotocol/sdk): start, list tools, call them
     voice.ts       speech queue: Kokoro WAVs through afplay, or the Mac's say
     kokoro.ts      talks to the Kokoro helper process
     summary.ts     spoken wrap-up for long replies
@@ -283,7 +322,7 @@ src/
     settings.ts    settings.json
   preload/     the window.poppy bridge
   renderer/    the Poppy window (with the chat balloon), the settings window and the memory window
-  shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules)
+  shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules, the tools file and tool rules)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
 scripts/
@@ -311,14 +350,15 @@ The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see
 
 1. Your message (plus any files) goes to Poppy's brain (Ollama, or Claude with Ollama as the backup) with a short system prompt that asks the model to start with a mood tag like `[happy]`, plus what Poppy remembers that fits.
 2. The reply streams in. Poppy strips the mood tag, any `<think>` blocks, markdown and emoji for the bubble, and switches to the mood's drawing.
-3. Finished sentences go to the speech queue straight away. Kokoro renders two sentences ahead, so there are no gaps between them.
-4. When he's done talking, the exchange is saved and Poppy learns from it in the background.
+3. With tools on, the model may call tools first. Poppy runs them (asking you first when a tool can change things), hands the results back, and the model goes on, for up to 5 rounds.
+4. Finished sentences go to the speech queue straight away. Kokoro renders two sentences ahead, so there are no gaps between them.
+5. When he's done talking, the exchange is saved and Poppy learns from it in the background.
 
 ## Roadmap
 
 - **A graph view** of the people and things Poppy knows, in the memory window.
 - **Training data export:** good exchanges as a dataset, to fine-tune a small model on your Mac with Apple's MLX.
-- **Co-worker tools:** help with Mail and files in folders you allow, always asking before he sends, moves or deletes anything.
+- **More co-worker tools:** ready-made servers for Mail and Calendar, and tools with the Claude brain too.
 - **Voice input:** talk to Poppy instead of typing.
 - **A real `.app`** you can drag into Applications.
 
@@ -327,5 +367,6 @@ The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see
 - **Code:** [MIT](LICENSE).
 - **Drawings:** the Poppy character and all drawings and pictures (`docs/design/`, `docs/screenshots/`, `assets/states/`, `assets/chat/`, `assets/tray/`) are © 2026 Michel Neufeglise, **all rights reserved**. You may run Poppy with them for personal use, but please don't reuse the character or drawings elsewhere. If you build on this code, draw your own buddy! Details in [LICENSE](LICENSE).
 - **Font:** [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand) by Patrick Wagesreiter, SIL Open Font License 1.1 ([`assets/fonts/OFL.txt`](assets/fonts/OFL.txt)).
+- **Tools:** the tool loop and the tools file format follow [ollama-mcp-bridge](https://github.com/jonigl/ollama-mcp-bridge) by jonigl (MIT), rebuilt in TypeScript inside Poppy with the official [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk).
 - **Voice:** [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad, run through [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) by thewh1teagle.
 - **PDF reading:** [pdf.js](https://mozilla.github.io/pdf.js/) by Mozilla.

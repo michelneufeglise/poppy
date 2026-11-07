@@ -1,8 +1,15 @@
-import { CUT_SHORT_NOTE, shouldFallBack, type BrainMessage } from '../shared/brain'
+import { CUT_SHORT_NOTE, HISTORY_TOOL_CHARS, shouldFallBack, type BrainMessage } from '../shared/brain'
 import { DEFAULT_SETTINGS, type BrainStatus, type Settings } from '../shared/types'
 import { askClaude, claudeProblem, ClaudeRefusal, streamClaude } from './claude'
-import { canSee, chatOnce, listModels, pickDefaultModel, streamChat } from './ollama'
+import { callArguments, toOllamaTools, type OllamaToolCall, type ToolInfo } from '../shared/tools'
+import { canSee, chatOnce, listModels, pickDefaultModel, streamChatParts, type ChatMessage } from './ollama'
 import { getApiKey } from './secrets'
+
+/**
+ * With tools offered, Ollama runs cooler: at its default temperature qwen3.6 sometimes says
+ * "done!" without calling the tool (10 of 16 tries called it); at 0.2 it called it 16 of 16.
+ */
+const TOOL_TEMPERATURE = 0.2
 
 /** No first words from Claude within this time: Ollama answers instead. */
 const FIRST_WORDS_TIMEOUT_MS = 20_000
@@ -14,6 +21,18 @@ export interface StreamOptions {
   signal: AbortSignal
   /** Ollama's context size for this request. */
   numCtx?: number
+  /** MCP tools the model may use (chat replies through Ollama only). */
+  tools?: ChatTools
+}
+
+export interface ChatTools {
+  list: ToolInfo[]
+  /** Rounds of tool calls before the model has to answer without tools. */
+  rounds: number
+  /** Runs one call (asking the user first when needed); the text goes back to the model. */
+  run(tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<string>
+  /** Filled with the tool turns of this reply, for the chat history. */
+  trail: BrainMessage[]
 }
 
 export interface AskOptions {
@@ -121,7 +140,42 @@ export class Brain {
     if (messages.some((m) => m.images?.length) && !(await canSee(s.ollamaUrl, model))) {
       throw new BrainError(`My model ${model} can't look at pictures. Pick one that can, like qwen3.6:35b-a3b, in settings.`)
     }
-    yield* streamChat(s.ollamaUrl, model, messages, opts.signal, opts.numCtx)
+    const tools = opts.tools?.list.length ? opts.tools : undefined
+    if (!tools) {
+      for await (const part of streamChatParts(s.ollamaUrl, model, messages, opts.signal, opts.numCtx)) if (part.text) yield part.text
+      return
+    }
+    // The tool loop (like ollama-mcp-bridge): the model calls tools, gets the results and goes on,
+    // until it answers without calling any, or the rounds run out and it must answer without tools.
+    const offered = toOllamaTools(tools.list)
+    const convo: ChatMessage[] = messages.map((m) => ({ ...m }))
+    let wroteSomething = false
+    for (let round = 0; round <= tools.rounds; round++) {
+      const last = round === tools.rounds
+      let text = ''
+      const calls: OllamaToolCall[] = []
+      for await (const part of streamChatParts(s.ollamaUrl, model, convo, opts.signal, opts.numCtx, last ? undefined : offered, last ? undefined : TOOL_TEMPERATURE)) {
+        if (part.text) {
+          if (!text && wroteSomething) yield '\n\n'
+          text += part.text
+          wroteSomething = true
+          yield part.text
+        }
+        if (part.toolCalls) calls.push(...part.toolCalls)
+      }
+      if (!calls.length) return
+      convo.push({ role: 'assistant', content: text, tool_calls: calls })
+      tools.trail.push({ role: 'assistant', content: '', tool_calls: calls })
+      for (const call of calls) {
+        const tool = tools.list.find((t) => t.name === call.function.name)
+        const result = tool
+          ? await tools.run(tool, callArguments(call), opts.signal)
+          : `There's no tool called ${call.function.name}. Use one of: ${tools.list.map((t) => t.name).join(', ')}.`
+        convo.push({ role: 'tool', tool_name: call.function.name, content: result })
+        const kept = result.length > HISTORY_TOOL_CHARS ? `${result.slice(0, HISTORY_TOOL_CHARS)}…` : result
+        tools.trail.push({ role: 'tool', tool_name: call.function.name, content: kept })
+      }
+    }
   }
 
   /** One short answer for Poppy's own work (learning, reflection, the spoken wrap-up). */

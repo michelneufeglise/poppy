@@ -29,6 +29,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.3.0",
-    "pdfjs-dist": "6.4.299"
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "pdfjs-dist": "6.4.299",
+    "zod": "4.6.7"
   }
 }

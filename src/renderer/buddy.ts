@@ -529,6 +529,92 @@ api.onChatError((err) => {
   showBubble(err.message, 9000)
 })
 
+// ---------- tools ----------
+
+/** A small handwritten line above the reply: which tool Poppy is using or used. */
+function toolNote(text: string, cls = ''): HTMLDivElement {
+  log.querySelector('.empty')?.remove()
+  const el = document.createElement('div')
+  el.className = `tool-note ${cls}`.trim()
+  el.textContent = text
+  if (replyEl?.isConnected) log.insertBefore(el, replyEl)
+  else log.appendChild(el)
+  log.scrollTop = log.scrollHeight
+  return el
+}
+
+const notes = new Map<string, HTMLDivElement>()
+
+api.onToolUse((u) => {
+  if (!replying || !acceptId(u.id)) return
+  touch()
+  const words = {
+    running: `using ${u.tool}…`,
+    done: `used ${u.tool}`,
+    failed: `${u.tool} didn't work`,
+    refused: `didn't use ${u.tool}`
+  }[u.state]
+  const key = `${u.id}:${u.tool}`
+  const el = notes.get(key)
+  if (el && u.state !== 'running') {
+    el.textContent = words
+    notes.delete(key)
+  } else if (u.state === 'running') notes.set(key, toolNote(words))
+  else toolNote(words)
+  if (u.state === 'running') setState('busy')
+  else if (u.state === 'failed') setState('confused', 3000, 'thinking')
+  else setState('thinking')
+})
+
+/** "May I?" with handwritten yes / no links, like the good / not quite ones. */
+const askBoxes = new Map<number, HTMLDivElement>()
+
+api.onToolAsk((a) => {
+  if (!replying || !acceptId(a.id)) {
+    api.answerTool(a.askId, false)
+    return
+  }
+  touch()
+  if (panel.hidden) openPanel()
+  const box = toolNote('', 'ask')
+  const q = document.createElement('span')
+  q.className = 'question'
+  q.textContent = 'May I use this?'
+  const call = document.createElement('span')
+  call.className = 'call'
+  call.textContent = a.call
+  const links = document.createElement('span')
+  links.className = 'rate'
+  for (const [yes, word] of [
+    [true, 'yes'],
+    [false, 'no']
+  ] as const) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.textContent = word
+    b.addEventListener('click', () => {
+      askBoxes.delete(a.askId)
+      api.answerTool(a.askId, yes)
+      links.replaceChildren(Object.assign(document.createElement('span'), { className: 'thanks', textContent: yes ? 'okay!' : "okay, I won't" }))
+    })
+    links.appendChild(b)
+  }
+  box.append(q, call, links)
+  log.scrollTop = log.scrollHeight
+  askBoxes.set(a.askId, box)
+  setState('hopeful')
+  showBubble('May I use a tool? Have a look in the chat.')
+})
+
+api.onToolAsked((askId) => {
+  const box = askBoxes.get(askId)
+  if (!box) return
+  askBoxes.delete(askId)
+  box.querySelector('.rate')?.replaceChildren(
+    Object.assign(document.createElement('span'), { className: 'thanks', textContent: "no answer, so I didn't" })
+  )
+})
+
 api.onOpenChat(() => openPanel())
 api.onForgotAll(() => {
   replying = false

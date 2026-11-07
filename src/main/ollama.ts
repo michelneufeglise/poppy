@@ -1,8 +1,20 @@
+import type { OllamaTool, OllamaToolCall } from '../shared/tools'
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   /** Base64 images for vision models. */
   images?: string[]
+  /** The model's tool calls (assistant turns in a tool round). */
+  tool_calls?: OllamaToolCall[]
+  /** Which tool a 'tool' message answers. */
+  tool_name?: string
+}
+
+/** A piece of a streamed reply: text, or the tool calls the model wants. */
+export interface StreamPart {
+  text?: string
+  toolCalls?: OllamaToolCall[]
 }
 
 /** Whether a model can look at images (Ollama's "vision" capability). */
@@ -54,8 +66,25 @@ export async function* streamChat(
   signal: AbortSignal,
   numCtx?: number
 ): AsyncGenerator<string> {
+  for await (const part of streamChatParts(baseUrl, model, messages, signal, numCtx)) if (part.text) yield part.text
+}
+
+/** Like streamChat, with tools offered to the model: tool calls come out as their own parts. */
+export async function* streamChatParts(
+  baseUrl: string,
+  model: string,
+  messages: ChatMessage[],
+  signal: AbortSignal,
+  numCtx?: number,
+  tools?: OllamaTool[],
+  temperature?: number
+): AsyncGenerator<StreamPart> {
   const body: Record<string, unknown> = { model, messages, stream: true, think: false, keep_alive: '30m' }
-  if (numCtx) body.options = { num_ctx: numCtx }
+  const options: Record<string, number> = {}
+  if (numCtx) options.num_ctx = numCtx
+  if (temperature !== undefined) options.temperature = temperature
+  if (Object.keys(options).length) body.options = options
+  if (tools?.length) body.tools = tools
   const post = (): Promise<Response> =>
     fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
@@ -85,9 +114,10 @@ export async function* streamChat(
       const line = buffer.slice(0, nl).trim()
       buffer = buffer.slice(nl + 1)
       if (!line) continue
-      const msg = JSON.parse(line) as { error?: string; message?: { content?: string } }
+      const msg = JSON.parse(line) as { error?: string; message?: { content?: string; tool_calls?: OllamaToolCall[] } }
       if (msg.error) throw new OllamaError(msg.error)
-      if (msg.message?.content) yield msg.message.content
+      if (msg.message?.content) yield { text: msg.message.content }
+      if (msg.message?.tool_calls?.length) yield { toolCalls: msg.message.tool_calls }
     }
   }
 }

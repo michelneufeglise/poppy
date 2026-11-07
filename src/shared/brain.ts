@@ -3,16 +3,31 @@
  * when to fall back to Ollama. No network here, so it can be tested.
  */
 import type Anthropic from '@anthropic-ai/sdk'
+import type { OllamaToolCall } from './tools'
 
 export type BrainKind = 'ollama' | 'claude'
 
 export const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5'
 
 export interface BrainMessage {
-  role: 'system' | 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   /** Base64 JPEG images (attachments). */
   images?: string[]
+  /** Tool calls Poppy made through Ollama (kept in the history so he remembers what he did). */
+  tool_calls?: OllamaToolCall[]
+  /** Which tool a 'tool' message answers. */
+  tool_name?: string
+}
+
+/** Tool results kept in the chat history are cut to this length. */
+export const HISTORY_TOOL_CHARS = 2000
+
+/** The history starts with a user message: tool turns cut off from their question are dropped. */
+export function trimHistory(history: BrainMessage[], max: number): BrainMessage[] {
+  const out = history.slice(-max)
+  while (out.length && out[0].role !== 'user') out.shift()
+  return out
 }
 
 /** Shown after the text when Claude stops halfway through a reply. */
@@ -29,7 +44,7 @@ export function toClaudeRequest(messages: BrainMessage[]): { system: string; mes
     .join('\n\n')
   const out: Anthropic.MessageParam[] = []
   for (const m of messages) {
-    if (m.role === 'system') continue
+    if (m.role === 'system' || m.role === 'tool') continue // Claude doesn't get Ollama's tool turns
     if (!out.length && m.role === 'assistant') continue
     const blocks: Anthropic.ContentBlockParam[] = []
     if (m.role === 'user') {

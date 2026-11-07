@@ -1,4 +1,4 @@
-import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings } from '../shared/types'
+import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings, type ToolsStatus } from '../shared/types'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -22,6 +22,12 @@ const dutchVoice = $<HTMLSelectElement>('dutch-voice')
 const memoryOn = $<HTMLInputElement>('memory-on')
 const embedModel = $<HTMLSelectElement>('embed')
 const memoryStatus = $<HTMLParagraphElement>('memory-status')
+const toolsOn = $<HTMLInputElement>('tools-on')
+const toolsBox = $<HTMLDivElement>('tools-box')
+const toolServers = $<HTMLDivElement>('tool-servers')
+const toolsStatus = $<HTMLParagraphElement>('tools-status')
+const toolRounds = $<HTMLInputElement>('tool-rounds')
+let lastTools: ToolsStatus | null = null
 const brainSel = $<HTMLSelectElement>('brain')
 const claudeBox = $<HTMLDivElement>('claude-box')
 const claudeKey = $<HTMLInputElement>('claude-key')
@@ -108,6 +114,53 @@ function render(): void {
   sleep.value = String(settings.sleepAfterMinutes)
   memoryOn.checked = settings.memoryEnabled
   if (document.activeElement !== embedModel && embedModel.options.length) embedModel.value = settings.embedModel
+  toolsOn.checked = settings.toolsEnabled
+  toolsBox.hidden = !settings.toolsEnabled
+  toolRounds.value = String(settings.toolRounds)
+  showTools(lastTools)
+}
+
+/** Each server from the tools file: running or not, its tools, and "don't ask first". */
+function showTools(st: ToolsStatus | null): void {
+  lastTools = st
+  if (!settings || !st) return
+  const trusted = settings.toolsTrusted
+  toolServers.replaceChildren(
+    ...st.servers.map((srv) => {
+      const box = document.createElement('div')
+      box.className = 'tool-server'
+      const head = document.createElement('p')
+      head.className = srv.state === 'error' ? 'hint error' : 'hint'
+      const changes = srv.tools.filter((t) => !t.readOnly).length
+      head.textContent =
+        srv.state === 'starting'
+          ? `${srv.name}: starting…`
+          : srv.state === 'error'
+            ? `${srv.name}: didn't start. ${srv.message}`
+            : `${srv.name}: ${srv.tools.length} tools${changes ? `, ${changes} can change things` : ''}`
+      head.title = srv.tools.map((t) => t.name + (t.readOnly ? ' (reads only)' : '')).join('\n')
+      box.append(head)
+      if (srv.state === 'ready' && changes) {
+        const label = document.createElement('label')
+        label.className = 'check'
+        const cb = document.createElement('input')
+        cb.type = 'checkbox'
+        cb.checked = trusted.includes(srv.name)
+        cb.addEventListener('change', () => {
+          const others = settings!.toolsTrusted.filter((n) => n !== srv.name)
+          void save({ toolsTrusted: cb.checked ? [...others, srv.name] : others })
+        })
+        label.append(cb, ` Let ${srv.name} change things without asking`)
+        box.append(label)
+      }
+      return box
+    })
+  )
+  const lines = [...st.problems]
+  if (!st.servers.length && !st.problems.length) lines.push('No servers in the tools file yet. Add one with "Edit tools file…" (see the README for examples).')
+  lines.push(`Tools file: ${st.file}`)
+  toolsStatus.textContent = lines.join(' ')
+  toolsStatus.className = st.problems.length ? 'hint error' : 'hint'
 }
 
 async function loadEmbedModels(): Promise<void> {
@@ -217,6 +270,15 @@ dutchVoice.addEventListener('change', () => save({ dutchVoice: dutchVoice.value 
 memoryOn.addEventListener('change', () => save({ memoryEnabled: memoryOn.checked }))
 embedModel.addEventListener('change', () => save({ embedModel: embedModel.value }))
 $('open-memory').addEventListener('click', () => api.openMemory())
+toolsOn.addEventListener('change', () => save({ toolsEnabled: toolsOn.checked }))
+toolRounds.addEventListener('change', () => {
+  const n = Math.min(10, Math.max(1, Math.round(Number(toolRounds.value) || 5)))
+  void save({ toolRounds: n })
+})
+$('edit-tools').addEventListener('click', () => api.openToolsFile())
+$('reload-tools').addEventListener('click', () => api.reloadTools())
+api.onToolsStatus(showTools)
+void api.toolsStatus().then(showTools)
 api.onMemoryChanged(showMemoryStats)
 void api.memoryStats().then(showMemoryStats)
 kokoroVoice.replaceChildren(...KOKORO_VOICES.map((v) => option(v.id, v.label)))

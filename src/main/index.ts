@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, shell, Tray } from 'electron'
 import { join } from 'node:path'
 import { composeMessage, contextSize } from '../shared/attachments'
 import { isForgetRequest } from '../shared/memory'
@@ -11,13 +11,25 @@ import {
   speechView,
   wordCount
 } from '../shared/speech'
-import { DEFAULT_SETTINGS, type ChatError, type ChatUpdate, type PastMessage, type Settings, type SpeechLang } from '../shared/types'
+import { ASK_TIMEOUT_MS, describeCall, needsAsk, type ToolInfo } from '../shared/tools'
+import { trimHistory, type BrainMessage } from '../shared/brain'
+import {
+  DEFAULT_SETTINGS,
+  type ChatError,
+  type ChatUpdate,
+  type PastMessage,
+  type Settings,
+  type SpeechLang,
+  type ToolAsk,
+  type ToolUse
+} from '../shared/types'
 import { addFiles, forget, loadFiles } from './attachments'
 import { Memory } from './memory'
 import { Kokoro } from './kokoro'
-import { Brain, BrainError } from './brain'
+import { Brain, BrainError, type ChatTools } from './brain'
+import { ToolBox } from './mcp'
 import { claudeProblem, listClaudeModels } from './claude'
-import { listEmbedModels, listModels, OllamaError, type ChatMessage } from './ollama'
+import { listEmbedModels, listModels, OllamaError } from './ollama'
 import { getApiKey, maskedApiKey, setApiKey } from './secrets'
 import { getSettings, onSettingsChanged, updateSettings } from './settings'
 import { spokenWrapUp } from './summary'
@@ -42,6 +54,13 @@ Body: [tired] [lazy] [hungry] [thirsty] [sick]
 Greetings: [hello] when greeting, [sad-hello] for a sad hello, [bye] when saying goodbye. Calm: [idle]
 Example: "[happy] Nice, that worked!" Never use any other tags.`
 
+/** Added to the instructions when tools are on. */
+const TOOLS_PROMPT = `
+
+You can use tools when they really help with what the user asks (like looking in files). Don't use them for small talk.
+You can't do anything yourself: reading, writing or changing anything only happens through a tool call. Never say you did something unless a tool result in this conversation shows it. When the user asks for something a tool can do, call the tool, even if you used it before.
+Some tools ask the user first. A no only counts for that one request: don't try it again in the same reply, but for a new request, call the tool again (the user will be asked again). After using tools, answer in your usual short way, still starting with one mood tag.`
+
 let buddy: BrowserWindow | null = null
 let settingsWin: BrowserWindow | null = null
 let memoryWin: BrowserWindow | null = null
@@ -50,7 +69,12 @@ const brain = new Brain(getSettings, (patch) => setSettings(patch))
 const kokoro = new Kokoro()
 const voice = new Voice(kokoro)
 let lastLang: SpeechLang = 'en'
-let history: ChatMessage[] = []
+let history: BrainMessage[] = []
+/** MCP servers from the tools file (mcp.json in the data folder). Created when the app is ready. */
+let toolBox: ToolBox | null = null
+/** Open "may I use this tool?" questions → their answer. */
+const asks = new Map<number, (yes: boolean) => void>()
+let askSeq = 0
 let replyId = 0
 let current: AbortController | null = null
 let chatOpen = false
@@ -301,6 +325,48 @@ function speechFor(text: string, lang: SpeechLang, s: Settings): Speech {
 
 // ---------- chat ----------
 
+/** The tools for one chat reply: read-only tools run at once, others wait for the user's yes. */
+function chatTools(id: number, s: Settings): ChatTools | undefined {
+  const list = toolBox?.tools() ?? []
+  if (!list.length) return undefined
+  return {
+    list,
+    trail: [],
+    rounds: Math.max(1, Math.min(10, Math.round(s.toolRounds) || 5)),
+    run: async (tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<string> => {
+      const use = (state: ToolUse['state']): void => sendBuddy('chat:tool-use', { id, tool: tool.name, state } satisfies ToolUse)
+      if (needsAsk(tool, getSettings().toolsTrusted) && !(await askUser(id, tool, args, signal))) {
+        use('refused')
+        return "The user said no, so this tool wasn't used. Don't try it again for this request."
+      }
+      use('running')
+      const result = await toolBox!.call(tool, args, signal)
+      console.log(`[tools] ${tool.server}/${tool.original}: ${result.ok ? 'ok' : 'failed'}`)
+      use(result.ok ? 'done' : 'failed')
+      return result.text
+    }
+  }
+}
+
+/** Asks in the balloon whether a tool may run. No answer in time, or a stopped reply, counts as no. */
+function askUser(id: number, tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    const askId = ++askSeq
+    const done = (yes: boolean): void => {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', onAbort)
+      asks.delete(askId)
+      sendBuddy('chat:tool-asked', askId)
+      resolve(yes)
+    }
+    const onAbort = (): void => done(false)
+    const timer = setTimeout(() => done(false), ASK_TIMEOUT_MS)
+    signal.addEventListener('abort', onAbort)
+    asks.set(askId, done)
+    sendBuddy('chat:tool-ask', { id, askId, server: tool.server, call: describeCall(tool.name, args) } satisfies ToolAsk)
+  })
+}
+
 function stopReply(): void {
   replyId++
   current?.abort()
@@ -371,7 +437,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     if (id !== replyId) return
     const content = loaded.files.length ? composeMessage(text, loaded.files) : text
     history.push({ role: 'user', content })
-    if (history.length > MAX_HISTORY) history = history.slice(-MAX_HISTORY)
+    history = trimHistory(history, MAX_HISTORY)
     const display = [text.trim(), ...loaded.files.map((f) => `(attached: ${f.name})`)].filter(Boolean).join('\n')
     userMsgId = memory?.store.addMessage(conversationId, 'user', content, display) ?? null
     // What Poppy remembers that fits this message goes into his instructions.
@@ -403,11 +469,12 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
       }
     }
 
-    const messages: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT + note }, ...history]
+    const tools = chatTools(id, s)
+    const messages: BrainMessage[] = [{ role: 'system', content: SYSTEM_PROMPT + (tools ? TOOLS_PROMPT : '') + note }, ...history]
     if (loaded.images.length) messages[messages.length - 1] = { ...messages.at(-1)!, images: loaded.images }
     const chars = messages.reduce((n, m) => n + m.content.length, 0)
     const numCtx = contextSize(chars, loaded.images.length)
-    for await (const chunk of brain.stream(messages, { signal: ctrl.signal, numCtx })) {
+    for await (const chunk of brain.stream(messages, { signal: ctrl.signal, numCtx, tools })) {
       if (id !== replyId) return
       raw += chunk
       reply = parseReply(raw)
@@ -422,7 +489,7 @@ async function runChat(text: string, attachmentIds: string[] = []): Promise<void
     if (id !== replyId) return
     sendBuddy('chat:update', { id, text: reply.text, mood: reply.mood, done: true } satisfies ChatUpdate)
     const answer = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
-    history.push({ role: 'assistant', content: answer })
+    history.push(...(tools?.trail ?? []), { role: 'assistant', content: answer })
     const replyMsgId = memory?.store.addMessage(conversationId, 'assistant', answer, reply.text) ?? null
     if (replyMsgId) replyMessages.set(id, replyMsgId)
     if (s.voiceEnabled) {
@@ -554,6 +621,14 @@ function registerIpc(): void {
     ]).popup({ window: buddy ?? undefined })
   })
   ipcMain.on('chat:stop', () => stopReply())
+  ipcMain.on('chat:tool-answer', (_e, askId: number, yes: boolean) => asks.get(Number(askId))?.(yes === true))
+  ipcMain.handle('tools:status', () => toolBox?.status() ?? null)
+  ipcMain.handle('tools:reload', () => toolBox?.reload())
+  ipcMain.handle('tools:open-file', async () => {
+    if (!toolBox) return
+    const problem = await shell.openPath(toolBox.ensureFile())
+    if (problem) shell.showItemInFolder(toolBox.file)
+  })
   ipcMain.on('chat:reset', () => {
     stopReply()
     history = []
@@ -666,10 +741,14 @@ if (!app.requestSingleInstanceLock()) {
     kokoro.on('status', (status) => sendAll('voice:kokoro-status', status))
     warmKokoro(getSettings())
     startMemory()
+    toolBox = new ToolBox(join(app.getPath('userData'), 'mcp.json'))
+    toolBox.onStatus((st) => sendAll('tools:status', st))
+    void toolBox.setEnabled(getSettings().toolsEnabled)
     brain.onStatus(() => sendAll('claude:status', { ...brain.status(), masked: maskedApiKey() }))
     onSettingsChanged((s) => {
       sendAll('settings:changed', s)
       updateTrayMenu()
+      void toolBox?.setEnabled(s.toolsEnabled)
     })
     createBuddy()
     createTray()
@@ -682,5 +761,6 @@ if (!app.requestSingleInstanceLock()) {
     kokoro.shutdown()
     memory?.close()
     memory = null
+    void toolBox?.stopAll()
   })
 }

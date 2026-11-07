@@ -19,7 +19,7 @@ export function splitReply(raw: string): { body: string; mood: Mood | null } {
   const mood = match ? (match[1].toLowerCase() as Mood) : null
 
   s = s.replace(MOOD_TAGS, ' ')
-  s = s.replace(/^\s*\[[a-z-]+\]/i, '') // an invented tag at the very start
+  s = s.replace(/(^|\n)[ \t]*\[[a-z-]+\][ \t]*/gi, '$1') // an invented tag at the start (or after a tool round)
   s = s.replace(/\[[a-z-]{0,14}$/i, '') // a tag that's still streaming in
   // The whole reply wrapped in brackets ("[I am happy to help! …]"): a mood tag gone wrong.
   const wrapped = s.trim().match(/^\[([^[\]]{12,})\]?$/)

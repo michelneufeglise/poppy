@@ -58,6 +58,7 @@ The chat window is the user's own picture, [chat-window.jpg](chat-window.jpg), u
 - The settings window uses the same pieces: frame, paper, the same header (× and – close settings; gear and menu do nothing there), pencil lines between sections, the input box drawing around fields and dropdowns, and `button.png` (the Send button with its word erased) for buttons. The picture has no checkbox or slider drawing, so those are the normal controls in graphite.
 - The memory window is a third paper window built from the same pieces as settings (frame, header, pencil lines, input box, `button.png`), with × next to each memory in Patrick Hand. Nothing new is drawn.
 - The "good" / "not quite" feedback under Poppy's latest reply is handwritten text in Patrick Hand (faint until hovered), not a drawing. If the user wants drawn icons for these, ask for a picture.
+- Tools: a small italic pencil note above the reply ("using read_note…", "used read_note", "didn't use write_note"), and the question "May I use this?" with the call in small pencil text and handwritten "yes" / "no" links in the same style as "good" / "not quite". All text, no drawings. Poses: hopeful while asking, busy while a tool runs, confused for a moment when one fails.
 
 ## Menu-bar icon
 Made by `scripts/cut_sheet.py` from the idle drawing: its silhouette as a macOS template image, with the drawing's own pupils cut out as holes so it reads as Poppy's face at 18 px. Nothing is redrawn.

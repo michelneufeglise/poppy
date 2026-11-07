@@ -94,6 +94,12 @@ export interface Settings {
   memoryEnabled: boolean
   /** Ollama embedding model for memory search. Without one, memory search falls back to keywords. */
   embedModel: string
+  /** Let Poppy use tools from MCP servers (the tools file) when chatting through Ollama. */
+  toolsEnabled: boolean
+  /** Servers whose tools may change things without asking first. */
+  toolsTrusted: string[]
+  /** Rounds of tool calls per reply before Poppy has to answer. */
+  toolRounds: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -113,7 +119,10 @@ export const DEFAULT_SETTINGS: Settings = {
   sleepAfterMinutes: 10,
   position: null,
   memoryEnabled: true,
-  embedModel: 'nomic-embed-text'
+  embedModel: 'nomic-embed-text',
+  toolsEnabled: false,
+  toolsTrusted: [],
+  toolRounds: 5
 }
 
 export interface ChatUpdate {
@@ -186,6 +195,39 @@ export interface MemorySnapshot {
     type: string
     links: { id: number; text: string }[]
   }[]
+}
+
+/** One MCP server from the tools file, for the settings window. */
+export interface ToolServerStatus {
+  name: string
+  state: 'starting' | 'ready' | 'error'
+  /** Why it didn't start, or the tools file's problem. */
+  message: string
+  tools: { name: string; readOnly: boolean }[]
+}
+
+export interface ToolsStatus {
+  enabled: boolean
+  file: string
+  /** Problems with the tools file itself. */
+  problems: string[]
+  servers: ToolServerStatus[]
+}
+
+/** Poppy asks before a tool that can change things runs. */
+export interface ToolAsk {
+  id: number
+  askId: number
+  server: string
+  /** Short form of the call, like `write_file (path: notes.txt)`. */
+  call: string
+}
+
+/** A tool Poppy used, shown as a small handwritten line in the balloon. */
+export interface ToolUse {
+  id: number
+  tool: string
+  state: 'running' | 'done' | 'failed' | 'refused'
 }
 
 /** What the settings window shows about Claude (never the key itself). */

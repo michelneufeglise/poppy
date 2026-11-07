@@ -549,3 +549,29 @@ img {
 .rate .thanks {
   font-style: italic;
 }
+
+/* Tools: a pencil note above the reply ("used read_file"), and "May I use this?" with yes / no. */
+.tool-note {
+  align-self: stretch;
+  padding: 0 4px;
+  font-size: 15px;
+  color: var(--pencil);
+  font-style: italic;
+}
+.tool-note.ask {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-style: normal;
+  font-size: 17px;
+  color: var(--ink);
+}
+.tool-note.ask .call {
+  font-size: 14px;
+  color: var(--pencil);
+  word-break: break-word;
+}
+.tool-note.ask .rate {
+  opacity: 1;
+  font-size: 17px;
+}

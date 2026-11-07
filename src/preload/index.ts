@@ -10,6 +10,9 @@ import type {
   PastMessage,
   Settings,
   SpeechLang,
+  ToolAsk,
+  ToolsStatus,
+  ToolUse,
   VoiceInfo
 } from '../shared/types'
 
@@ -55,6 +58,12 @@ const api = {
   /** The "good" / "not quite" links under Poppy's reply. */
   rateReply: (replyId: number, value: 'good' | 'not_quite') => ipcRenderer.send('chat:rate', replyId, value),
   onForgotAll: (cb: () => void) => on('ui:forgot-all', cb),
+  /** "May I use this tool?" in the balloon, and the answer. */
+  onToolAsk: (cb: (a: ToolAsk) => void) => on('chat:tool-ask', cb),
+  /** The question is settled (answered, timed out or the reply was stopped). */
+  onToolAsked: (cb: (askId: number) => void) => on('chat:tool-asked', cb),
+  answerTool: (askId: number, yes: boolean) => ipcRenderer.send('chat:tool-answer', askId, yes),
+  onToolUse: (cb: (u: ToolUse) => void) => on('chat:tool-use', cb),
   /** Wave goodbye: main hides the window right after. */
   onBye: (cb: () => void) => on('ui:bye', cb),
 
@@ -81,6 +90,11 @@ const api = {
   setClaudeKey: (key: string) => ipcRenderer.invoke('claude:set-key', key) as Promise<{ ok: boolean; message: string }>,
   listClaudeModels: () => ipcRenderer.invoke('claude:models') as Promise<{ ok: boolean; models: string[]; message: string }>,
   onClaudeStatus: (cb: (s: ClaudeStatus) => void) => on('claude:status', cb),
+  // tools (MCP servers from the tools file)
+  toolsStatus: () => ipcRenderer.invoke('tools:status') as Promise<ToolsStatus | null>,
+  reloadTools: () => ipcRenderer.invoke('tools:reload') as Promise<void>,
+  openToolsFile: () => ipcRenderer.invoke('tools:open-file') as Promise<void>,
+  onToolsStatus: (cb: (s: ToolsStatus) => void) => on('tools:status', cb),
   listVoices: () => ipcRenderer.invoke('voice:list') as Promise<VoiceInfo[]>,
   testVoice: (lang: SpeechLang) => ipcRenderer.send('voice:test', lang),
   getKokoroStatus: () => ipcRenderer.invoke('voice:kokoro-status') as Promise<KokoroStatus>,

@@ -117,6 +117,23 @@
         <hr />
 
         <section>
+          <h2>Tools</h2>
+          <label class="check"><input id="tools-on" type="checkbox" /> Let Poppy use tools</label>
+          <p class="hint">Tools come from MCP servers in the tools file (the same format as ollama-mcp-bridge). Tools that only read run right away; anything else asks you first in the chat. Works with the Ollama brain.</p>
+          <div id="tools-box">
+            <div id="tool-servers"></div>
+            <p id="tools-status" class="hint"></p>
+            <div class="row">
+              <button id="edit-tools" class="btn" type="button">Edit tools file…</button>
+              <button id="reload-tools" class="btn" type="button">Reload</button>
+            </div>
+            <label for="tool-rounds">Tool rounds per reply</label>
+            <span class="field small"><input id="tool-rounds" type="number" min="1" max="10" step="1" /></span>
+          </div>
+        </section>
+        <hr />
+
+        <section>
           <h2>Behavior</h2>
           <label for="sleep">Fall asleep after (minutes)</label>
           <span class="field small"><input id="sleep" type="number" min="1" max="240" step="1" /></span>
