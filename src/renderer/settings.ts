@@ -33,6 +33,10 @@ let lastTools: ToolsStatus | null = null
 const weatherOn = $<HTMLInputElement>('weather-on')
 const homeCity = $<HTMLInputElement>('home-city')
 const webOn = $<HTMLInputElement>('web-on')
+const webSearch = $<HTMLSelectElement>('web-search')
+const searxngUrl = $<HTMLInputElement>('searxng-url')
+/** null = the local search engine answers; a string = why not; undefined = not checked yet. */
+let localSearch: string | null | undefined
 const ollamaKey = $<HTMLInputElement>('ollama-key')
 const removeOllamaKey = $<HTMLButtonElement>('remove-ollama-key')
 const musicOn = $<HTMLInputElement>('music-on')
@@ -134,6 +138,10 @@ function render(): void {
   toolRounds.value = String(settings.toolRounds)
   weatherOn.checked = settings.weatherTool
   webOn.checked = settings.webTool
+  webSearch.value = settings.webSearch
+  $('local-search-box').hidden = settings.webSearch !== 'local'
+  $('ollama-search-box').hidden = settings.webSearch !== 'ollama'
+  if (document.activeElement !== searxngUrl) searxngUrl.value = settings.searxngUrl
   musicOn.checked = settings.musicTool
   if (document.activeElement !== homeCity) homeCity.value = settings.homeCity
   showTools(lastTools)
@@ -196,12 +204,33 @@ function showOwnTools(st: ToolsStatus): void {
     el.className = note ? (note.ok ? 'hint ok' : 'hint error') : on && srv?.state === 'error' ? 'hint error' : 'hint'
   }
   line('weather', settings!.weatherTool, settings!.homeCity ? '' : 'No home city yet.')
-  line('web', settings!.webTool, toolKeys.ollama ? `Key saved (${toolKeys.ollama}).` : '')
+  line(
+    'web',
+    settings!.webTool,
+    settings!.webSearch === 'ollama'
+      ? toolKeys.ollama
+        ? `Key saved (${toolKeys.ollama}).`
+        : ''
+      : localSearch === undefined
+        ? 'Checking the local search engine…'
+        : localSearch === null
+          ? 'The local search engine is running.'
+          : `But ${localSearch}.`
+  )
+  if (settings!.webTool && settings!.webSearch === 'local' && localSearch) $('web-status').className = 'hint error'
   line('music', settings!.musicTool, toolKeys.spotify ? `Spotify keys saved (${toolKeys.spotify}): plays songs by name.` : 'No Spotify keys: opens searches in Spotify.')
   removeOllamaKey.hidden = !toolKeys.ollama
   removeSpotify.hidden = !toolKeys.spotify
   ollamaKey.placeholder = toolKeys.ollama ?? 'from ollama.com'
   spotifyId.placeholder = toolKeys.spotify ?? ''
+}
+
+async function checkLocalSearch(): Promise<void> {
+  if (settings?.webSearch !== 'local') return
+  localSearch = undefined
+  if (lastTools) showOwnTools(lastTools)
+  localSearch = await api.checkLocalSearch()
+  if (lastTools) showOwnTools(lastTools)
 }
 
 async function saveToolKey(which: 'ollama' | 'spotify', first: string, second?: string): Promise<void> {
@@ -337,6 +366,14 @@ toolRounds.addEventListener('change', () => {
 })
 weatherOn.addEventListener('change', () => save({ weatherTool: weatherOn.checked }))
 webOn.addEventListener('change', () => save({ webTool: webOn.checked }))
+webSearch.addEventListener('change', async () => {
+  await save({ webSearch: webSearch.value as Settings['webSearch'] })
+  void checkLocalSearch()
+})
+searxngUrl.addEventListener('change', async () => {
+  await save({ searxngUrl: searxngUrl.value.trim().replace(/\/+$/, '') || 'http://127.0.0.1:8890' })
+  void checkLocalSearch()
+})
 musicOn.addEventListener('change', () => save({ musicTool: musicOn.checked }))
 homeCity.addEventListener('change', () => save({ homeCity: homeCity.value.trim().slice(0, 100) }))
 $('save-ollama-key').addEventListener('click', () => {
@@ -378,6 +415,7 @@ api.getSettings().then(async (s) => {
   settings = s
   render()
   showClaude(await api.claudeStatus())
+  void checkLocalSearch()
   await Promise.all([loadModels(), loadVoices(), loadEmbedModels(), loadClaudeModels()])
 })
 

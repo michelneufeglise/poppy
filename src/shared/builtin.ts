@@ -244,6 +244,33 @@ export function webUrlProblem(raw: string): string | null {
   return null
 }
 
+/** Addresses on this Mac or the local network (also IPv4-mapped IPv6): pages there are never read. */
+export function isPrivateAddress(ip: string): boolean {
+  let a = ip.toLowerCase().replace(/^\[|\]$/g, '')
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(a)
+  if (mapped) a = mapped[1]
+  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(a)
+  if (v4) {
+    const [x, y] = [Number(v4[1]), Number(v4[2])]
+    return (
+      x === 0 || x === 10 || x === 127 || (x === 169 && y === 254) || (x === 172 && y >= 16 && y <= 31) ||
+      (x === 192 && y === 168) || (x === 100 && y >= 64 && y <= 127) || x >= 224
+    )
+  }
+  return a === '::' || a === '::1' || /^f[cd]/.test(a) || /^fe[89ab]/.test(a) || /^ff/.test(a)
+}
+
+/** Readable text from a page: no runs of spaces, at most one empty line in a row. */
+export function tidyText(text: string): string {
+  return text
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((l) => l.replace(/[ \t\u00a0]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 // ---------- music (Spotify) ----------
 
 interface SpotifyItem {

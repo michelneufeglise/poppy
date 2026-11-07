@@ -9,7 +9,7 @@ import { webServer } from './web'
 export function builtinServers(s: Settings): BuiltinServer[] {
   const out: BuiltinServer[] = []
   if (s.weatherTool) out.push(weatherServer(s.homeCity))
-  if (s.webTool) out.push(webServer(getSecret('ollama')))
+  if (s.webTool) out.push(webServer({ mode: s.webSearch, searxngUrl: s.searxngUrl, key: getSecret('ollama') }))
   if (s.musicTool) {
     const id = getSecret('spotifyId')
     const secret = getSecret('spotifySecret')

@@ -5,10 +5,12 @@ import {
   formatSearch,
   formatWeather,
   intArg,
+  isPrivateAddress,
   MAX_PAGE_CHARS,
   pickPlace,
   pickSpotify,
   splitPlace,
+  tidyText,
   WEB_NOTE,
   webUrlProblem,
   weatherWords
@@ -74,6 +76,18 @@ describe('web', () => {
     expect(webUrlProblem('http://192.168.1.1')).toMatch(/local network/)
     expect(webUrlProblem('http://172.20.0.1')).toMatch(/local network/)
     expect(webUrlProblem('nope')).toMatch(/not a web address/)
+  })
+})
+
+describe('reading pages on this Mac', () => {
+  it('never reads addresses on this Mac or the local network', () => {
+    for (const ip of ['127.0.0.1', '10.1.2.3', '192.168.0.10', '172.16.5.4', '169.254.169.254', '100.100.1.1', '0.0.0.0', '::1', '::', 'fd00::1', 'fe80::1', '::ffff:192.168.1.1'])
+      expect(isPrivateAddress(ip), ip).toBe(true)
+    for (const ip of ['93.184.216.34', '172.32.0.1', '8.8.8.8', '2606:4700::1111', '::ffff:8.8.8.8']) expect(isPrivateAddress(ip), ip).toBe(false)
+  })
+
+  it('tidies page text', () => {
+    expect(tidyText('  Title \r\n\n\n\n  Some\t\t text\u00a0here  \n\nEnd ')).toBe('Title\n\nSome text here\n\nEnd')
   })
 })
 

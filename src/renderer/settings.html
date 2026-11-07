@@ -142,14 +142,28 @@
             </div>
             <div class="group">
               <label class="check"><input id="web-on" type="checkbox" /> Web search</label>
-              <label for="ollama-key">Ollama key</label>
-              <div class="row">
-                <span class="field"><input id="ollama-key" type="password" autocomplete="off" spellcheck="false" placeholder="from ollama.com" /></span>
-                <button id="save-ollama-key" class="btn" type="button">Save</button>
+              <label for="web-search">Search with</label>
+              <span class="field select">
+                <select id="web-search">
+                  <option value="local">Local search engine (no key)</option>
+                  <option value="ollama">Ollama's web search (key)</option>
+                </select>
+              </span>
+              <div id="local-search-box" class="group">
+                <label for="searxng-url">Local search address</label>
+                <span class="field"><input id="searxng-url" type="text" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:8890" /></span>
+                <p class="hint">A SearXNG search engine in Docker on this Mac. Set it up once with "npm run searxng" in Poppy's folder (see the README). It asks search engines like Google, Bing and DuckDuckGo for you, with no account. Poppy reads pages on this Mac.</p>
+              </div>
+              <div id="ollama-search-box" class="group">
+                <label for="ollama-key">Ollama key</label>
+                <div class="row">
+                  <span class="field"><input id="ollama-key" type="password" autocomplete="off" spellcheck="false" placeholder="from ollama.com" /></span>
+                  <button id="save-ollama-key" class="btn" type="button">Save</button>
+                </div>
+                <button id="remove-ollama-key" class="btn" type="button" hidden>Remove key</button>
+                <p class="hint">Make a free key at ollama.com/settings/keys. Your searches and the pages Poppy reads go through ollama.com.</p>
               </div>
               <p id="web-status" class="hint"></p>
-              <button id="remove-ollama-key" class="btn" type="button" hidden>Remove key</button>
-              <p class="hint">Make a free key at ollama.com/settings/keys. Your searches and the pages Poppy reads go through ollama.com.</p>
             </div>
             <div class="group">
               <label class="check"><input id="music-on" type="checkbox" /> Music (Spotify app)</label>

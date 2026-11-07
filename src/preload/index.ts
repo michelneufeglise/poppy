@@ -101,6 +101,8 @@ const api = {
   setToolKey: (which: 'ollama' | 'spotify', first: string, second?: string) =>
     ipcRenderer.invoke('tools:set-key', which, first, second) as Promise<{ ok: boolean; message: string }>,
   onToolKeys: (cb: (k: ToolKeys) => void) => on('tools:keys', cb),
+  /** null when the local search engine answers, else why not. */
+  checkLocalSearch: () => ipcRenderer.invoke('tools:check-search') as Promise<string | null>,
   listVoices: () => ipcRenderer.invoke('voice:list') as Promise<VoiceInfo[]>,
   testVoice: (lang: SpeechLang) => ipcRenderer.send('voice:test', lang),
   getKokoroStatus: () => ipcRenderer.invoke('voice:kokoro-status') as Promise<KokoroStatus>,

@@ -213,9 +213,17 @@ Three tools are built in. They're on as soon as **Let Poppy use tools** is on, a
 | Tool | What Poppy can do | What it needs |
 |---|---|---|
 | **Weather** | The weather now and up to 7 days ahead, for your **home city** or any place you name. From [Open-Meteo](https://open-meteo.com), in °C and km/h. | Nothing. Set a home city in Settings. |
-| **Web search** | Search the web and read a page (`web_search`, `web_fetch`), through Ollama's web search API. | A free key from [ollama.com/settings/keys](https://ollama.com/settings/keys). |
+| **Web search** | Search the web and read a page (`web_search`, `web_fetch`). By default through a **local search engine** ([SearXNG](https://docs.searxng.org)) in Docker on your Mac, with pages read on your Mac. Or pick **Ollama's web search** (search and pages through ollama.com). | Local: [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/) and one setup command (below), no key. Ollama: a free key from [ollama.com/settings/keys](https://ollama.com/settings/keys). |
 | **Music** | Play, pause, skip, go back, shuffle, set the volume and say what's playing, in the Spotify app on your Mac. | The Spotify app. The first time, macOS asks whether Poppy may control Spotify. |
 | **Music: play by name** | "Play Bohemian Rhapsody": Poppy searches Spotify and plays the best match (songs, albums, playlists, artists). | A Spotify developer app's client ID and secret ([developer.spotify.com](https://developer.spotify.com/dashboard), the owner needs Premium). Without them, Poppy opens the search in Spotify and you click play. |
+
+**Setting up the local search engine** (once, with Docker Desktop running):
+
+```bash
+npm run searxng
+```
+
+It starts a SearXNG container named `poppy-searxng` that only listens on your Mac (`127.0.0.1:8890`), with its settings in Poppy's data folder (`searxng/settings.yml`). Docker starts it again whenever Docker runs, so let Docker Desktop start at login. Run the command again to re-create it. Settings → Tools shows whether it's running. SearXNG asks search engines like Google, Bing and DuckDuckGo for you, without an account; sometimes one of them blocks it for a while, and the others still answer.
 
 All three only read, except the music controls, which run without asking (skipping a song is harmless). Web pages and search results are marked as information, not instructions, so a page can't tell Poppy what to do. The keys are stored encrypted with your Mac's Keychain, like the Claude key, and never shown again (only `abcd…wxyz`).
 
@@ -263,7 +271,7 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Mac voice speed | Speed for all Mac voices. |
 | Fall asleep after | Minutes of quiet before Poppy dozes off. Default 10. |
 | Learn from our chats | Memory learning on or off. |
-| Let Poppy use tools | Tools on or off. Off by default. Below it: Poppy's own tools (weather with a home city, web search with an Ollama key, music with optional Spotify keys), then each MCP server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
+| Let Poppy use tools | Tools on or off. Off by default. Below it: Poppy's own tools (weather with a home city, web search through the local search engine or Ollama with a key, music with optional Spotify keys), then each MCP server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
 | Tool rounds per reply | How many rounds of tool calls per reply (1–10). Default 5. |
 | Memory search model | The Ollama embedding model for memory search. Default `nomic-embed-text`; "None" searches by keywords. |
 
@@ -277,7 +285,7 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 - Files you attach are read on your Mac and sent only to Poppy's brain (your Ollama, or Claude when it's on). Poppy only reads files you pick or drop yourself.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
 - **Tools** (off by default) run the MCP servers you list in `mcp.json`, on your Mac. What a server does with your data is up to that server. Tools that can change things ask you first.
-- **Poppy's own tools,** when tools are on: the weather sends the place name to Open-Meteo; web search sends your search and the pages Poppy reads to ollama.com (with your key); playing music by name sends the search to Spotify. Music controls stay on your Mac.
+- **Poppy's own tools,** when tools are on: the weather sends the place name to Open-Meteo; web search sends your search through the local search engine to search engines like Google, Bing and DuckDuckGo, and Poppy fetches the pages it reads from your Mac (never local-network addresses); with Ollama's web search picked, searches and pages go through ollama.com (with your key); playing music by name sends the search to Spotify. Music controls stay on your Mac.
 - No analytics, no telemetry, and no accounts unless you add a key yourself (Claude, Ollama web search, Spotify).
 
 ## Troubleshooting
@@ -317,6 +325,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
+| `npm run searxng` | Set up (or re-create) the local search engine in Docker |
 | `npm run cut-sheet-female` | Re-cut female Poppy from her two sheets |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
 
@@ -331,7 +340,7 @@ src/
     secrets.ts     the API key, encrypted with the Keychain (safeStorage)
     ollama.ts      Ollama client (streaming chat with tools, model list, image support check, embeddings)
     mcp.ts         MCP servers from the tools file (@modelcontextprotocol/sdk) and Poppy's own tools: list and call them
-    tools/         Poppy's own tools: weather (Open-Meteo), web (Ollama web search), music (Spotify app + search)
+    tools/         Poppy's own tools: weather (Open-Meteo), web (local SearXNG or Ollama web search; page.ts reads pages), music (Spotify app + search)
     voice.ts       speech queue: Kokoro WAVs through afplay, or the Mac's say
     kokoro.ts      talks to the Kokoro helper process
     summary.ts     spoken wrap-up for long replies
@@ -347,6 +356,7 @@ scripts/
   cut_sheet.py   cuts the 12 poses out of docs/design/emotions-sheet.jpg
   cut_sheet2.py  cuts the 36 extra poses and their names out of docs/design/emotions-sheet-2.jpg
   cut_sheet_female.py  cuts female Poppy (48 poses, names, header, menu-bar icon) out of her two sheets
+  searxng.sh           sets up the local search engine (SearXNG in Docker, 127.0.0.1 only)
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
 docs/design/   the original drawings and the design notes

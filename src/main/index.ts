@@ -34,7 +34,7 @@ import { listEmbedModels, listModels, OllamaError } from './ollama'
 import { getApiKey, maskedApiKey, maskSecret, setApiKey, setSecret } from './secrets'
 import { builtinServers } from './tools'
 import { checkSpotifyKeys } from './tools/music'
-import { checkOllamaKey } from './tools/web'
+import { checkLocalSearch, checkOllamaKey } from './tools/web'
 import { getSettings, onSettingsChanged, updateSettings } from './settings'
 import { spokenWrapUp } from './summary'
 import { listVoices, Voice, type Speech } from './voice'
@@ -656,6 +656,7 @@ function registerIpc(): void {
   ipcMain.handle('tools:status', () => toolBox?.status() ?? null)
   // Keys for Poppy's own tools: like the Claude key, they only go from the settings page to main.
   ipcMain.handle('tools:keys', () => toolKeys())
+  ipcMain.handle('tools:check-search', () => checkLocalSearch(getSettings().searxngUrl))
   ipcMain.handle('tools:set-key', async (_e, which: unknown, first: unknown, second: unknown) => {
     const a = String(first ?? '').trim()
     const b = String(second ?? '').trim()

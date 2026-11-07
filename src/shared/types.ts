@@ -108,6 +108,10 @@ export interface Settings {
   /** Poppy's own tools (only used when toolsEnabled): weather from Open-Meteo, web search through Ollama, Spotify. */
   weatherTool: boolean
   webTool: boolean
+  /** local = the SearXNG search engine on this Mac (no key); ollama = Ollama's web search API (key). */
+  webSearch: 'local' | 'ollama'
+  /** Where the local search engine listens (scripts/searxng.sh). */
+  searxngUrl: string
   musicTool: boolean
   /** The place get_weather uses when the user doesn't name one. */
   homeCity: string
@@ -137,6 +141,8 @@ export const DEFAULT_SETTINGS: Settings = {
   toolRounds: 5,
   weatherTool: true,
   webTool: true,
+  webSearch: 'local',
+  searxngUrl: 'http://127.0.0.1:8890',
   musicTool: true,
   homeCity: ''
 }
