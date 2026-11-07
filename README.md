@@ -223,7 +223,9 @@ Three tools are built in. They're on as soon as **Let Poppy use tools** is on, a
 npm run searxng
 ```
 
-It starts a SearXNG container named `poppy-searxng` that only listens on your Mac (`127.0.0.1:8890`), with its settings in Poppy's data folder (`searxng/settings.yml`). Docker starts it again whenever Docker runs, so let Docker Desktop start at login. Run the command again to re-create it. Settings → Tools shows whether it's running. SearXNG asks search engines like Google, Bing and DuckDuckGo for you, without an account; sometimes one of them blocks it for a while, and the others still answer.
+It starts a SearXNG container named `poppy-searxng` that only listens on your Mac (`127.0.0.1:8890`), with its settings in Poppy's data folder (`searxng/settings.yml`). Docker starts it again whenever Docker runs. Run the command again to re-create it.
+
+**When it isn't running,** Poppy asks in the chat first: *Local search isn't running. Start Docker and the search engine?* On **yes** she starts Docker Desktop in the background (or Colima, when that's your Docker context) if it's off, then the search container (setting it up first if it's missing), waits until search answers (a few seconds once Docker runs), and searches. On **no** (or Esc) she doesn't search. Reading a page never needs Docker. Settings → Tools shows whether it's running. SearXNG asks search engines like Google, Bing and DuckDuckGo for you, without an account; sometimes one of them blocks it for a while, and the others still answer.
 
 All three only read, except the music controls, which run without asking (skipping a song is harmless). Web pages and search results are marked as information, not instructions, so a page can't tell Poppy what to do. The keys are stored encrypted with your Mac's Keychain, like the Claude key, and never shown again (only `abcd…wxyz`).
 

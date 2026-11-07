@@ -1,6 +1,7 @@
-import { formatPage, formatSearch, intArg, WEB_TOOLS, webUrlProblem } from '../../shared/builtin'
+import { formatPage, formatSearch, intArg, isLocalUrl, WEB_TOOLS, webUrlProblem } from '../../shared/builtin'
+import { startLocalSearch } from './docker'
 import { readPage } from './page'
-import { failure, getJson, HttpError, type BuiltinServer } from './types'
+import { failure, getJson, HttpError, type BuiltinServer, type ToolContext, type ToolResult } from './types'
 
 /**
  * Web search in two ways:
@@ -63,6 +64,26 @@ export async function checkLocalSearch(searxngUrl: string): Promise<string | nul
 
 type Results = { results?: { title?: string; url?: string; content?: string }[] }
 
+export const START_QUESTION = "Local search isn't running. Start Docker and the search engine?"
+
+/** Makes sure the local engine answers: if not, asks the user and starts it on a yes. A string = why not. */
+async function ensureLocalSearch(opts: WebOptions, signal: AbortSignal, ctx: ToolContext): Promise<ToolResult | null> {
+  const down = await checkLocalSearch(opts.searxngUrl)
+  if (!down) return null
+  if (!isLocalUrl(opts.searxngUrl)) return { ok: false, text: `The web search failed: ${down}.` }
+  if (!(await ctx.ask(START_QUESTION)))
+    return { ok: false, refused: true, text: "The user said no to starting the local search engine, so there's no web search for this request." }
+  ctx.progress('starting local search…')
+  try {
+    await startLocalSearch(opts.searxngUrl.replace(/\/+$/, ''), signal)
+    ctx.progress('searching…')
+    return null
+  } catch (err) {
+    if (signal.aborted) throw err
+    return { ok: false, text: `Starting the local search engine failed: ${err instanceof Error ? err.message : String(err)}.` }
+  }
+}
+
 async function search(opts: WebOptions, query: string, max: number, signal: AbortSignal): Promise<Results> {
   if (opts.mode === 'ollama') return post<Results>('/api/web_search', opts.key!, { query, max_results: max }, signal)
   const q = new URLSearchParams({ q: query, format: 'json' })
@@ -77,9 +98,13 @@ export function webServer(opts: WebOptions): BuiltinServer {
     tools: [
       {
         def: WEB_TOOLS[0],
-        run: async (args, signal) => {
+        run: async (args, signal, ctx) => {
           const query = typeof args.query === 'string' ? args.query.trim().slice(0, 400) : ''
           if (!query) return { ok: false, text: 'web_search needs a query.' }
+          if (opts.mode === 'local') {
+            const problem = await ensureLocalSearch(opts, signal, ctx)
+            if (problem) return problem
+          }
           try {
             return { ok: true, text: formatSearch(query, await search(opts, query, intArg(args.max_results, 1, 10, 5), signal)) }
           } catch (err) {

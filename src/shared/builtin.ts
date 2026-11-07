@@ -260,6 +260,15 @@ export function isPrivateAddress(ip: string): boolean {
   return a === '::' || a === '::1' || /^f[cd]/.test(a) || /^fe[89ab]/.test(a) || /^ff/.test(a)
 }
 
+/** Whether a search engine address is on this Mac (only then can Poppy start it). */
+export function isLocalUrl(url: string): boolean {
+  try {
+    return ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname)
+  } catch {
+    return false
+  }
+}
+
 /** Readable text from a page: no runs of spaces, at most one empty line in a row. */
 export function tidyText(text: string): string {
   return text

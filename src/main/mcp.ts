@@ -7,7 +7,7 @@ import { existsSync, readFileSync, unwatchFile, watchFile, writeFileSync } from 
 import { homedir } from 'node:os'
 import type { ToolServerStatus, ToolsStatus } from '../shared/types'
 import { BUILTIN_SERVERS } from '../shared/builtin'
-import type { BuiltinServer } from './tools/types'
+import { NO_CONTEXT, type BuiltinServer, type ToolContext } from './tools/types'
 import { keepTool, parseToolsFile, toolResultText, TOOLS_FILE_EXAMPLE, uniqueNames, type ServerConfig, type ToolInfo } from '../shared/tools'
 
 /** Starting a server can take a while the first time (npx/uvx download it). */
@@ -205,12 +205,12 @@ export class ToolBox {
   }
 
   /** Runs one tool; the answer is text for the model (errors too, so the model can carry on). */
-  async call(tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<{ ok: boolean; text: string }> {
+  async call(tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal, ctx: ToolContext = NO_CONTEXT): Promise<{ ok: boolean; text: string; refused?: boolean }> {
     const own = this.builtins().find((b) => b.name === tool.server)
     if (own) {
       const t = own.tools.find((x) => x.def.name === tool.original)
       if (own.problem || !t) return { ok: false, text: `The ${tool.server} tools can't be used right now${own.problem ? `: ${own.problem}` : '.'}` }
-      return t.run(args, signal)
+      return t.run(args, signal, ctx)
     }
     const server = this.servers.find((s) => s.config.name === tool.server)
     if (!server?.client) return { ok: false, text: `The ${tool.server} tools aren't running right now.` }

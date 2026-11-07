@@ -365,21 +365,24 @@ function chatTools(id: number, s: Settings): ChatTools | undefined {
     rounds: Math.max(1, Math.min(10, Math.round(s.toolRounds) || 5)),
     run: async (tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<string> => {
       const use = (state: ToolUse['state']): void => sendBuddy('chat:tool-use', { id, tool: tool.name, state } satisfies ToolUse)
-      if (needsAsk(tool, getSettings().toolsTrusted) && !(await askUser(id, tool, args, signal))) {
+      if (needsAsk(tool, getSettings().toolsTrusted) && !(await askUser(id, tool.server, describeCall(tool.name, args), signal))) {
         use('refused')
         return "The user said no, so this tool wasn't used. Don't try it again for this request."
       }
       use('running')
-      const result = await toolBox!.call(tool, args, signal)
+      const result = await toolBox!.call(tool, args, signal, {
+        ask: (question) => askUser(id, tool.server, '', signal, question, tool.name),
+        progress: (note) => sendBuddy('chat:tool-use', { id, tool: tool.name, state: 'running', note } satisfies ToolUse)
+      })
       console.log(`[tools] ${tool.server}/${tool.original}: ${result.ok ? 'ok' : 'failed'}`)
-      use(result.ok ? 'done' : 'failed')
+      use(result.refused ? 'refused' : result.ok ? 'done' : 'failed')
       return result.text
     }
   }
 }
 
-/** Asks in the balloon whether a tool may run. No answer in time, or a stopped reply, counts as no. */
-function askUser(id: number, tool: ToolInfo, args: Record<string, unknown>, signal: AbortSignal): Promise<boolean> {
+/** Asks in the balloon whether a tool may run (or a tool's own question). No answer in time, or a stopped reply, counts as no. */
+function askUser(id: number, server: string, call: string, signal: AbortSignal, question?: string, tool?: string): Promise<boolean> {
   return new Promise((resolve) => {
     const askId = ++askSeq
     const done = (yes: boolean): void => {
@@ -393,7 +396,7 @@ function askUser(id: number, tool: ToolInfo, args: Record<string, unknown>, sign
     const timer = setTimeout(() => done(false), ASK_TIMEOUT_MS)
     signal.addEventListener('abort', onAbort)
     asks.set(askId, done)
-    sendBuddy('chat:tool-ask', { id, askId, server: tool.server, call: describeCall(tool.name, args) } satisfies ToolAsk)
+    sendBuddy('chat:tool-ask', { id, askId, server, call, question, tool } satisfies ToolAsk)
   })
 }
 

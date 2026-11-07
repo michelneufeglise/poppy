@@ -3,11 +3,24 @@ import type { ToolDef } from '../../shared/builtin'
 export interface ToolResult {
   ok: boolean
   text: string
+  /** The user said no to something the tool asked (shown as "didn't use ...", not as a failure). */
+  refused?: boolean
 }
+
+/** What a tool of Poppy's own can do while it runs: ask the user a yes/no question, show progress. */
+export interface ToolContext {
+  /** Asks in the balloon; no answer in time, Esc or a stopped reply count as no. */
+  ask: (question: string) => Promise<boolean>
+  /** A short handwritten line in the balloon, like "starting local search…". */
+  progress: (text: string) => void
+}
+
+/** For calls without a chat (nobody to ask): every question is a no. */
+export const NO_CONTEXT: ToolContext = { ask: async () => false, progress: () => {} }
 
 export interface BuiltinTool {
   def: ToolDef
-  run: (args: Record<string, unknown>, signal: AbortSignal) => Promise<ToolResult>
+  run: (args: Record<string, unknown>, signal: AbortSignal, ctx: ToolContext) => Promise<ToolResult>
 }
 
 /** One group of Poppy's own tools, shown like a server in Settings. */

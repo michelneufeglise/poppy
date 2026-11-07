@@ -257,7 +257,7 @@ function addMessage(who: 'you' | 'poppy', text: string): HTMLDivElement {
 
 /** "good" / "not quite" under Poppy's latest reply: feedback he learns from. Handwritten, no drawings added. */
 function addRating(el: HTMLElement, replyId: number): void {
-  log.querySelectorAll('.rate').forEach((r) => r.remove())
+  log.querySelectorAll('.msg .rate').forEach((r) => r.remove())
   const box = document.createElement('span')
   box.className = 'rate'
   for (const [value, word] of [
@@ -331,7 +331,7 @@ form.addEventListener('submit', (e) => {
   if (!text && !attached.length) return
   touch()
   input.value = ''
-  log.querySelectorAll('.rate').forEach((r) => r.remove())
+  log.querySelectorAll('.msg .rate').forEach((r) => r.remove())
   const you = addMessage('you', text || 'Have a look at this.')
   showFilesIn(you, attached)
   const ids = attached.map((a) => a.id)
@@ -572,7 +572,7 @@ api.onToolUse((u) => {
   if (!replying || !acceptId(u.id)) return
   touch()
   const words = {
-    running: `using ${u.tool}…`,
+    running: u.note ?? `using ${u.tool}…`,
     done: `used ${u.tool}`,
     failed: `${u.tool} didn't work`,
     refused: `didn't use ${u.tool}`
@@ -582,7 +582,8 @@ api.onToolUse((u) => {
   if (el && u.state !== 'running') {
     el.textContent = words
     notes.delete(key)
-  } else if (u.state === 'running') notes.set(key, toolNote(words))
+  } else if (el && u.note) el.textContent = words
+  else if (u.state === 'running') notes.set(key, toolNote(words))
   else toolNote(words)
   if (u.state === 'running') setState('busy')
   else if (u.state === 'failed') setState('confused', 3000, 'thinking')
@@ -600,12 +601,16 @@ api.onToolAsk((a) => {
   touch()
   if (panel.hidden) openPanel()
   const box = toolNote('', 'ask')
+  // A tool's own question goes right above its "using …" line.
+  const running = a.tool ? notes.get(`${a.id}:${a.tool}`) : undefined
+  if (running?.isConnected) running.before(box)
   const q = document.createElement('span')
   q.className = 'question'
-  q.textContent = 'May I use this?'
+  q.textContent = a.question ?? 'May I use this?'
   const call = document.createElement('span')
   call.className = 'call'
   call.textContent = a.call
+  call.hidden = !a.call
   const links = document.createElement('span')
   links.className = 'rate'
   for (const [yes, word] of [
@@ -626,7 +631,7 @@ api.onToolAsk((a) => {
   log.scrollTop = log.scrollHeight
   askBoxes.set(a.askId, box)
   setState('hopeful')
-  showBubble('May I use a tool? Have a look in the chat.')
+  showBubble(a.question ? 'I have a question. Have a look in the chat.' : 'May I use a tool? Have a look in the chat.')
 })
 
 api.onToolAsked((askId) => {

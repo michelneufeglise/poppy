@@ -5,6 +5,7 @@ import {
   formatSearch,
   formatWeather,
   intArg,
+  isLocalUrl,
   isPrivateAddress,
   MAX_PAGE_CHARS,
   pickPlace,
@@ -84,6 +85,13 @@ describe('reading pages on this Mac', () => {
     for (const ip of ['127.0.0.1', '10.1.2.3', '192.168.0.10', '172.16.5.4', '169.254.169.254', '100.100.1.1', '0.0.0.0', '::1', '::', 'fd00::1', 'fe80::1', '::ffff:192.168.1.1'])
       expect(isPrivateAddress(ip), ip).toBe(true)
     for (const ip of ['93.184.216.34', '172.32.0.1', '8.8.8.8', '2606:4700::1111', '::ffff:8.8.8.8']) expect(isPrivateAddress(ip), ip).toBe(false)
+  })
+
+  it('only starts a search engine on this Mac', () => {
+    expect(isLocalUrl('http://127.0.0.1:8890')).toBe(true)
+    expect(isLocalUrl('http://localhost:8890/')).toBe(true)
+    expect(isLocalUrl('https://search.example.com')).toBe(false)
+    expect(isLocalUrl('nope')).toBe(false)
   })
 
   it('tidies page text', () => {

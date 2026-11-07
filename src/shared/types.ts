@@ -245,6 +245,10 @@ export interface ToolAsk {
   server: string
   /** Short form of the call, like `write_file (path: notes.txt)`. */
   call: string
+  /** A question of Poppy's own (like starting local search) instead of "May I use this?". */
+  question?: string
+  /** The tool that asks its own question (to show it next to that tool's line). */
+  tool?: string
 }
 
 /** A tool Poppy used, shown as a small handwritten line in the balloon. */
@@ -252,6 +256,8 @@ export interface ToolUse {
   id: number
   tool: string
   state: 'running' | 'done' | 'failed' | 'refused'
+  /** While running: what's happening now, instead of "using <tool>…". */
+  note?: string
 }
 
 /** Which keys for Poppy's own tools are saved (masked, never the keys themselves). */
