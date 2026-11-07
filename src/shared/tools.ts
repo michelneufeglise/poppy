@@ -174,7 +174,8 @@ export function describeCall(name: string, args: Record<string, unknown>, max = 
   const parts = Object.entries(args).map(([k, v]) => {
     let s = typeof v === 'string' ? v : JSON.stringify(v)
     s = s.replace(/\s+/g, ' ')
-    if (s.length > 40) s = `${s.slice(0, 39)}…`
+    // A long path keeps its end, so the file name stays visible.
+    if (s.length > 40) s = typeof v === 'string' && /^[~/]/.test(v) && !/\s/.test(v) ? `…${s.slice(-39)}` : `${s.slice(0, 39)}…`
     return `${k}: ${s}`
   })
   const line = parts.length ? `${name} (${parts.join(', ')})` : name

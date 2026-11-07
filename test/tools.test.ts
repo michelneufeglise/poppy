@@ -102,6 +102,9 @@ describe('asking first', () => {
     )
     expect(describeCall('list', {})).toBe('list')
     expect(describeCall('w', { content: 'x'.repeat(100) })).toBe(`w (content: ${'x'.repeat(39)}…)`)
+    expect(describeCall('edit_file', { path: '/Users/me/Documents/Poppy/lists/shopping-list.txt' })).toBe(
+      'edit_file (path: …Documents/Poppy/lists/shopping-list.txt)'
+    )
   })
 })
 
