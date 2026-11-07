@@ -1,5 +1,6 @@
 import { MAX_FILES } from '../shared/attachments'
 import { buddyOf } from '../shared/buddy'
+import { Blinker, type BlinkFrames } from './blink'
 import { Motion } from './motion'
 import { STATES, type AttachmentInfo, type AttachResult, type Character, type Mood, type PoppyState } from '../shared/types'
 
@@ -17,12 +18,18 @@ const labelUrls: Record<Character, Urls> = {
   male: import.meta.glob('../../assets/chat/label-*.png', { eager: true, import: 'default' }) as Urls,
   female: import.meta.glob('../../assets/female/chat/label-*.png', { eager: true, import: 'default' }) as Urls
 }
+// Polly's blink frames (scripts/cut_blink_female.py): <state>-half.png and <state>-closed.png.
+const blinkUrls = import.meta.glob('../../assets/female/blink/*.png', { eager: true, import: 'default' }) as Urls
 let character: Character = 'male'
 const urlFor = (s: PoppyState): string =>
   (character === 'female' && urls.female[`../../assets/female/states/${s}.png`]) || urls.male[`../../assets/states/${s}.png`]
 const labelFor = (s: PoppyState): string =>
   (character === 'female' && labelUrls.female[`../../assets/female/chat/label-${s}.png`]) ||
   labelUrls.male[`../../assets/chat/label-${s}.png`]
+const blinkFor = (s: PoppyState): BlinkFrames | null => {
+  const closed = character === 'female' && blinkUrls[`../../assets/female/blink/${s}-closed.png`]
+  return closed ? { closed, half: blinkUrls[`../../assets/female/blink/${s}-half.png`] } : null
+}
 const TWO_LINE_LABELS = new Set<PoppyState>(['sad-hello', 'bye', 'clapping'])
 const closeIcon = new URL('../../assets/chat/close.png', import.meta.url).href
 
@@ -83,6 +90,7 @@ for (const s of STATES) {
   loopLayer.appendChild(img)
   imgs[s] = img
 }
+const blinker = new Blinker(loopLayer)
 const motion = new Motion({ lean: leanLayer, react: reactLayer, loop: loopLayer, shadow: poppy.querySelector<HTMLElement>('.shadow') ?? undefined })
 
 /** Poppy (male) or Polly (female): swaps every drawing, the state's name and what she's called. */
@@ -96,6 +104,7 @@ function useCharacter(next: Character): void {
   for (const attr of ['aria-label', 'title']) $('hide').setAttribute(attr, `Hide ${name}`)
   for (const s of STATES) load(s)
   if (!first) label.src = labelFor(state)
+  blinker.show(blinkFor(first ? 'idle' : state)) // (state isn't set up yet on the first call)
 }
 useCharacter('male')
 
@@ -116,6 +125,7 @@ function setState(next: PoppyState, holdMs = 0, then: PoppyState = 'idle'): void
     label.src = labelFor(next)
     label.classList.toggle('two-lines', TWO_LINE_LABELS.has(next))
     motion.setState(next)
+    blinker.show(blinkFor(next))
   }
   // "listening" only makes sense while the chat is open; it may have closed during the hold.
   if (holdMs) holdTimer = window.setTimeout(() => setState(then === 'listening' && panel.hidden ? 'idle' : then), holdMs)

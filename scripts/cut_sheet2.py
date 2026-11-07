@@ -104,6 +104,7 @@ def cut_grid(
     label_boxes: dict | None = None,
     no_label: tuple = (),
     dry: bool = False,
+    pixels: np.ndarray | None = None,
 ) -> dict[str, int]:
     """Cut every named drawing in a grid sheet, and its name below it. None = a cell that is skipped
     (its strokes still belong to it, so they're wiped from the neighbours' cut-outs).
@@ -116,6 +117,8 @@ def cut_grid(
     label_boxes: {name: (x0, y0, x1, y1)} take the name from exactly this box instead.
     no_label: states whose name comes from another sheet.
     dry: only measure; returns each drawing's ink height in sheet pixels.
+    pixels: cut from this picture instead (same size as img), with img's boxes: a blink version of
+      the sheet then lands exactly where the open-eyed cut-out is.
     """
     h, w = img.shape[:2]
     paper = np.median(img.reshape(-1, 3), axis=0).astype(np.float32)
@@ -159,7 +162,7 @@ def cut_grid(
                 continue
             # This drawing's box, and a copy of the sheet with every other stroke wiped.
             others = (owner != -1) & (owner != c)
-            clean = img.copy()
+            clean = (img if pixels is None else pixels).copy()
             wipe = cv2.dilate(others[comps].astype(np.uint8), np.ones((7, 7), np.uint8)) == 1
             clean[top:bottom][wipe] = paper.astype(np.uint8)
             clean[:top] = paper.astype(np.uint8)  # the label above stays out of tall boxes
