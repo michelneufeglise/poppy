@@ -1,4 +1,5 @@
 import { MAX_FILES } from '../shared/attachments'
+import { Motion } from './motion'
 import { STATES, type AttachmentInfo, type AttachResult, type Character, type Mood, type PoppyState } from '../shared/types'
 
 const api = window.poppy
@@ -69,16 +70,19 @@ function load(s: PoppyState): void {
   })
 }
 
+// Motion layers (see motion.ts): lean while dragged > one-shot moves > the state's loop > the drawings.
+const layer = (parent: HTMLElement): HTMLDivElement => parent.appendChild(Object.assign(document.createElement('div'), { className: 'layer' }))
+const leanLayer = layer(poppy)
+const reactLayer = layer(leanLayer)
+const loopLayer = layer(reactLayer)
 for (const s of STATES) {
-  const frame = document.createElement('div')
-  frame.className = 'frame'
   const img = document.createElement('img')
   img.alt = ''
   img.draggable = false
-  frame.appendChild(img)
-  poppy.appendChild(frame)
+  loopLayer.appendChild(img)
   imgs[s] = img
 }
+const motion = new Motion({ lean: leanLayer, react: reactLayer, loop: loopLayer, shadow: poppy.querySelector<HTMLElement>('.shadow') ?? undefined })
 
 /** Male or female Poppy: swaps every drawing and the name under the current one. */
 function useCharacter(next: Character): void {
@@ -106,6 +110,7 @@ function setState(next: PoppyState, holdMs = 0, then: PoppyState = 'idle'): void
     poppy.className = `poppy s-${next}`
     label.src = labelFor(next)
     label.classList.toggle('two-lines', TWO_LINE_LABELS.has(next))
+    motion.setState(next)
   }
   // "listening" only makes sense while the chat is open; it may have closed during the hold.
   if (holdMs) holdTimer = window.setTimeout(() => setState(then === 'listening' && panel.hidden ? 'idle' : then), holdMs)
@@ -176,7 +181,7 @@ function overUi(e: MouseEvent): boolean {
 }
 
 let interactive = false
-let drag: { sx: number; sy: number; wx: number; wy: number; moved: boolean } | null = null
+let drag: { sx: number; sy: number; wx: number; wy: number; lx: number; ly: number; moved: boolean } | null = null
 let pressed = false
 
 window.addEventListener('mousemove', (e) => {
@@ -195,7 +200,7 @@ async function startDrag(e: PointerEvent, el: HTMLElement): Promise<void> {
   pressed = true
   el.setPointerCapture(e.pointerId)
   const [wx, wy] = await api.getPosition()
-  drag = { sx: e.screenX, sy: e.screenY, wx, wy, moved: false }
+  drag = { sx: e.screenX, sy: e.screenY, wx, wy, lx: e.screenX, ly: e.screenY, moved: false }
 }
 
 function moveDrag(e: PointerEvent): void {
@@ -205,6 +210,9 @@ function moveDrag(e: PointerEvent): void {
   if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 5) return
   drag.moved = true
   api.setPosition(drag.wx + dx, drag.wy + dy)
+  motion.dragMove(e.screenX - drag.lx, e.screenY - drag.ly) // she leans into the move
+  drag.lx = e.screenX
+  drag.ly = e.screenY
 }
 
 /** Returns true when the press was a click rather than a drag. */
@@ -213,7 +221,10 @@ function endDrag(): boolean {
   pressed = false
   drag = null
   touch()
-  if (wasDrag) api.savePosition()
+  if (wasDrag) {
+    api.savePosition()
+    motion.dragEnd() // and wobbles when let go
+  }
   return !wasDrag
 }
 
@@ -225,6 +236,7 @@ poppy.addEventListener('pointermove', moveDrag)
 poppy.addEventListener('pointerup', () => {
   if (!pressed) return
   if (!endDrag()) return
+  motion.poke()
   if (state === 'sleeping') wake()
   else togglePanel()
 })
@@ -761,6 +773,7 @@ api.onSettingsChanged((s) => {
 
 imgs.idle.classList.add('on')
 poppy.className = 'poppy s-idle'
+motion.setState('idle')
 label.src = labelFor('idle')
 setState('hello', 3500)
 showBubble("Hi! I'm Poppy. Click me to chat.", 6000)

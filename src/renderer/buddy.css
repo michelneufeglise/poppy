@@ -55,10 +55,10 @@ img {
 .poppy:active {
   cursor: grabbing;
 }
-.poppy .frame {
+/* Motion layers (motion.ts moves them): lean > react > loop > the drawings. */
+.poppy .layer {
   position: absolute;
   inset: 0;
-  transform-origin: 50% 100%;
   pointer-events: none;
 }
 .poppy img {
@@ -68,12 +68,13 @@ img {
   height: 100%;
   object-fit: contain;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.12s ease;
   -webkit-user-drag: none;
 }
 .poppy img.on {
   opacity: 1;
 }
+/* motion.ts shrinks and fades the shadow while she's in the air. */
 .shadow {
   position: absolute;
   left: 50%;
@@ -83,111 +84,7 @@ img {
   margin-left: -70px;
   border-radius: 50%;
   background: radial-gradient(closest-side, rgba(40, 40, 38, 0.35), transparent);
-  animation: shadow 3s ease-in-out infinite;
 }
-@keyframes shadow {
-  0%, 100% { transform: scaleX(1); }
-  50% { transform: scaleX(0.92); }
-}
-
-/* Whole-drawing motion only: the drawings themselves never change. */
-.poppy .frame { animation: breathe 3s ease-in-out infinite; }
-@keyframes breathe {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  50% { transform: translateY(-4px) scale(1.01, 0.99); }
-}
-.s-listening .frame { animation: listen 2.4s ease-in-out infinite; }
-@keyframes listen {
-  0%, 100% { transform: rotate(-2deg); }
-  50% { transform: rotate(2deg) translateY(-3px); }
-}
-.s-thinking .frame { animation: think 3.6s ease-in-out infinite; }
-@keyframes think {
-  0%, 100% { transform: rotate(-1.5deg); }
-  50% { transform: rotate(1.5deg) translateY(-2px); }
-}
-.s-talking .frame { animation: talk 0.5s ease-in-out infinite; }
-@keyframes talk {
-  0%, 100% { transform: scale(1, 1); }
-  50% { transform: scale(1.015, 0.985); }
-}
-.s-happy .frame { animation: hop 0.7s ease-in-out infinite; }
-@keyframes hop {
-  0%, 100% { transform: translateY(0) scale(1.02, 0.98); }
-  50% { transform: translateY(-16px) scale(0.98, 1.02); }
-}
-.s-sad .frame { animation: sad 4s ease-in-out infinite; }
-@keyframes sad {
-  0%, 100% { transform: translateY(2px) scale(1, 0.985); }
-  50% { transform: translateY(4px) scale(1, 0.97); }
-}
-.s-surprised .frame { animation: jump 0.35s ease-out 1, shake 0.12s linear 0.35s 4, breathe 3s ease-in-out 1s infinite; }
-@keyframes jump {
-  0% { transform: translateY(0); }
-  40% { transform: translateY(-22px) scale(0.96, 1.05); }
-  100% { transform: translateY(0); }
-}
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(3px); }
-}
-.s-curious .frame { animation: curious 2.8s ease-in-out infinite; }
-@keyframes curious {
-  0%, 100% { transform: rotate(0); }
-  50% { transform: rotate(4deg); }
-}
-.s-focused .frame { animation: breathe 4s ease-in-out infinite; }
-.s-determined .frame { animation: ready 0.9s ease-in-out infinite; }
-@keyframes ready {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  50% { transform: translateY(3px) scale(1.02, 0.98); }
-}
-.s-sleeping .frame { animation: sleep 5s ease-in-out infinite; }
-@keyframes sleep {
-  0%, 100% { transform: scale(1, 1); }
-  50% { transform: scale(1.025, 1.03); }
-}
-.s-hello .frame { animation: hello 0.6s ease-in-out infinite; }
-@keyframes hello {
-  0%, 100% { transform: rotate(-3deg); }
-  50% { transform: rotate(3deg) translateY(-3px); }
-}
-
-/* The second sheet's states reuse the same whole-image moves; the rest just breathe. */
-.s-laughing .frame,
-.s-excited .frame,
-.s-cheerful .frame,
-.s-clapping .frame,
-.s-playful .frame { animation: hop 0.7s ease-in-out infinite; }
-.s-shocked .frame,
-.s-spooked .frame { animation: jump 0.35s ease-out 1, shake 0.12s linear 0.35s 4, breathe 3s ease-in-out 1s infinite; }
-.s-scared .frame,
-.s-nervous .frame,
-.s-anxious .frame,
-.s-frustrated .frame { animation: tremble 0.18s linear infinite; }
-@keyframes tremble {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-1.5px); }
-  75% { transform: translateX(1.5px); }
-}
-.s-crying .frame,
-.s-sad-hello .frame,
-.s-sighing .frame,
-.s-tired .frame,
-.s-sick .frame,
-.s-bored .frame { animation: sad 4s ease-in-out infinite; }
-.s-bye .frame { animation: hello 0.6s ease-in-out infinite; }
-.s-confused .frame,
-.s-wonder .frame,
-.s-dreamy .frame,
-.s-doubtful .frame,
-.s-hopeful .frame,
-.s-shy .frame { animation: curious 2.8s ease-in-out infinite; }
-.s-angry .frame,
-.s-sneaky .frame { animation: ready 0.9s ease-in-out infinite; }
-.s-chilling .frame,
-.s-cuddly .frame,
-.s-lazy .frame { animation: sleep 5s ease-in-out infinite; }
 
 /* ---------- speech bubble (chat closed) ---------- */
 /* Bubbles draw their pencil outline in ::before, so the text can use the whole inside. */

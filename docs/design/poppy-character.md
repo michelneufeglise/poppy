@@ -39,9 +39,12 @@ Row by row as drawn: angry, laughing, shy, sneaky, bored, tired · crying, scare
 
 ## What animation is allowed
 Motion is applied to the **whole drawing**, never by changing what's drawn:
-- Breathing bob and a soft shadow underneath (always)
-- Crossfade when switching states
-- Per-state whole-image motion: hops (happy), tilts (listening, curious, thinking), sway (say hello), slow breathing (sleeping), a jump and shake (surprised), a small bounce (talking, determined)
+- Breathing bob and a soft shadow underneath (always); the shadow shrinks and fades while she's in the air
+- A quick crossfade plus a squish-and-spring when switching drawings (bigger for happy/angry, softer for sad/sleepy)
+- Per-state whole-image motion with squash and stretch (`src/renderer/motion.ts`): hops with a wind-up and a landing squash (happy and friends), tilts (listening, curious, thinking), a wave (hello, bye), slow breathing (sleeping), a jump with a shake on landing (surprised, shocked, spooked), a slump (sad), an uneven talking bounce, a small tremble (scared)
+- Every cycle differs a little in speed and size; while idle or listening she fidgets now and then (weight shift, look around, stretch, small bounce, wiggle)
+- She leans into the move while dragged and wobbles when let go; a click squishes her
+- macOS "Reduce motion": everything at half size, no intros or fidgets
 
 If a state ever needs real frame-by-frame animation (for example a blinking idle or a moving mouth), ask the user for extra drawings in the same style, rather than drawing frames yourself.
 
