@@ -59,6 +59,8 @@ const api = {
   /** The "good" / "not quite" links under Poppy's reply. */
   rateReply: (replyId: number, value: 'good' | 'not_quite') => ipcRenderer.send('chat:rate', replyId, value),
   onForgotAll: (cb: () => void) => on('ui:forgot-all', cb),
+  /** ≡ → Show whole chat: the earlier balloons at full strength. */
+  onWholeChat: (cb: () => void) => on('ui:whole-chat', cb),
   /** "May I use this tool?" in the balloon, and the answer. */
   onToolAsk: (cb: (a: ToolAsk) => void) => on('chat:tool-ask', cb),
   /** The question is settled (answered, timed out or the reply was stopped). */

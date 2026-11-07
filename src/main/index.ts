@@ -641,6 +641,7 @@ function registerIpc(): void {
     const s = getSettings()
     Menu.buildFromTemplate([
       { label: 'New chat', click: () => sendBuddy('ui:new-chat') },
+      { label: 'Show whole chat', click: () => sendBuddy('ui:whole-chat') },
       { label: 'Attach file…', click: () => sendBuddy('ui:attach') },
       { type: 'separator' },
       { label: 'Voice', type: 'checkbox', checked: s.voiceEnabled, click: (item) => setSettings({ voiceEnabled: item.checked }) },

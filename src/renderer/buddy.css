@@ -192,6 +192,7 @@ img {
 /* ---------- speech bubble (chat closed) ---------- */
 /* Bubbles draw their pencil outline in ::before, so the text can use the whole inside. */
 .bubble,
+.say,
 .msg {
   position: relative;
   isolation: isolate;
@@ -200,6 +201,7 @@ img {
   word-wrap: break-word;
 }
 .bubble::before,
+.say::before,
 .msg::before {
   content: '';
   position: absolute;
@@ -210,7 +212,8 @@ img {
   pointer-events: none;
 }
 .bubble::before,
-.panel::before {
+.say::before,
+.msg.bot::before {
   border-width: 20px 104px 34px 23px;
   border-image: url('../../assets/chat/bubble-poppy.png') 42 219 72 48 fill stretch;
 }
@@ -239,62 +242,57 @@ img {
   to { transform: none; opacity: 1; }
 }
 .bubble[hidden],
+.say[hidden],
 .panel[hidden] {
   display: none;
 }
 
-/* ---------- chat balloon ---------- */
-/* One big speech balloon (Poppy's bubble from the picture, stretched), its tail pointing down at Poppy,
-   who stands under it at his normal size. The window grows upward while it's open (main process). */
+/* ---------- chat: a comic strip ---------- */
+/* Top to bottom: earlier balloons (faded), the user's balloon where they type, Poppy's answer in
+   her own balloon with its tail on her head, then Poppy. The window grows upward while it's open. */
 .panel {
   position: fixed;
   left: 0;
-  top: 4px;
-  width: 380px;
-  height: 576px;
+  right: 0;
+  top: 0;
+  bottom: 226px;
   box-sizing: border-box;
-  /* Messages, file names, "attach" and the input stack from the top down; files push messages up. */
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 48px 30px 60px 26px;
-  isolation: isolate;
-  transform-origin: 75% 100%;
-  animation: balloon 0.22s ease-out;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 18px 0 10px;
 }
-.panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-style: solid;
-  border-color: transparent;
-  border-width: 26px 130px 44px 30px;
-  pointer-events: none;
+
+/* The user's balloon: the pencil icons and the drag strip on top, then the text, then attach / Send. */
+.composer {
+  flex: none;
+  align-self: flex-end;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 24px 22px 18px;
+  white-space: normal; /* the shared balloon rule keeps spaces, which would push the icons apart */
+  transform-origin: 90% 100%;
+  animation: balloon 0.22s ease-out;
 }
 @keyframes balloon {
   from { transform: scale(0.92); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
-
-/* Top strip: drag the balloon here; the pencil icons from the picture sit on the right. */
 .head {
-  position: absolute;
-  left: 24px;
-  right: 22px;
-  top: 10px;
-  height: 40px;
+  height: 26px;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   cursor: grab;
 }
 .head:active {
   cursor: grabbing;
 }
 .icon {
-  height: 30px;
+  height: 24px;
   padding: 0 3px;
   line-height: 0;
   border-radius: 8px;
@@ -305,16 +303,81 @@ img {
 }
 #hide img,
 #close img {
-  height: 22px;
+  height: 17px;
 }
 .icon:hover {
   background: rgba(38, 38, 36, 0.07);
 }
+.composer textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 128px;
+  margin: 2px 0;
+  padding: 0 4px;
+  font: 21px/1.2 var(--hand);
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.composer textarea::placeholder {
+  color: var(--pencil);
+  opacity: 0.8;
+}
+/* Sent: the question stays in the balloon while Poppy answers. */
+.composer.sent textarea {
+  caret-color: transparent;
+}
+.composer .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 30px;
+}
+.composer.sent .row {
+  display: none;
+}
+
+/* Poppy's answer: her own balloon, like the one on the desktop, its tail on her head. */
+.say {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 360px;
+  align-self: flex-end;
+  min-width: 150px;
+  max-width: 330px;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 26px 38px 25px;
+  user-select: text;
+  -webkit-user-select: text;
+  animation: pop 0.18s ease-out;
+}
+.say .text {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.say .text::-webkit-scrollbar {
+  display: none;
+}
+.say.error .text {
+  font-style: italic;
+}
+.say.hint .text {
+  color: var(--pencil);
+}
 
 /* ---------- attachments ---------- */
 .attach {
-  align-self: flex-start;
-  margin: 2px 0 4px 4px;
+  margin: 0;
   font-size: 17px;
   color: var(--pencil);
   padding: 0 6px;
@@ -329,8 +392,7 @@ img {
 }
 /* Name tags of attached files, stacked up from the "attach" link. */
 .attachments {
-  width: 240px;
-  margin-left: 8px;
+  margin: 0 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -378,7 +440,7 @@ img {
 /* Shown while files are dragged over the chat window. */
 .drop {
   position: absolute;
-  inset: 50px 26px 120px 28px;
+  inset: 8px 12px 0 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -409,22 +471,31 @@ img {
   mix-blend-mode: multiply;
 }
 
-/* Messages fill the balloon above the composer. */
+/* Earlier balloons, faded above the user's balloon; scroll up for older ones. */
 .log {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
-  margin-left: 4px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 0 4px;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 16px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
   user-select: text;
   -webkit-user-select: text;
   scrollbar-width: none;
-  /* Older messages fade out under the icons instead of being cut off. */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 40px);
+}
+.log:hover,
+.whole .log {
+  opacity: 1;
+}
+/* "Show whole chat": the earlier balloons get the room, Poppy's answer gets smaller. */
+.whole .say {
+  max-height: 170px;
 }
 .log::-webkit-scrollbar {
   display: none;
@@ -435,27 +506,22 @@ img {
 /* The user's bubble: shading bottom-left, tail bottom-right. */
 .msg.you {
   align-self: flex-end;
-  max-width: 92%;
+  box-sizing: border-box;
+}
+.log .msg.you {
+  max-width: 80%;
   min-width: 70px;
-  padding: 11px 26px 22px 21px;
+  padding: 10px 26px 21px 19px;
 }
 .msg.you::before {
   border-width: 12px 28px 22px 17px;
   border-image: url('../../assets/chat/bubble-you.png') 26 59 46 36 fill stretch;
 }
-/* Poppy's words: written straight in his balloon, like a comic. */
-.msg.bot {
-  align-self: stretch;
-  padding: 2px 4px;
-}
-.msg.error {
-  font-style: italic;
-}
-.empty {
-  margin: auto;
-  color: var(--pencil);
-  text-align: center;
-  font-size: 18px;
+.log .msg.bot {
+  align-self: flex-start;
+  max-width: 88%;
+  min-width: 130px;
+  padding: 14px 24px 32px 21px;
 }
 
 /* The state's name, hand-lettered on the emotion sheet, left of Poppy's feet while the chat is open. */
@@ -475,41 +541,9 @@ img {
   height: 34px;
 }
 
-.composer {
-  flex: none;
-  height: 58px;
-  display: flex;
-  gap: 4px;
-}
-.field {
-  flex: 1;
-  display: flex;
-  border-style: solid;
-  border-color: transparent;
-  border-width: 14px 7px 9px 12px;
-  border-image: url('../../assets/chat/input.png') 29 14 19 26 stretch;
-}
-.field input {
-  flex: 1;
-  min-width: 0;
-  font: 20px var(--hand);
-  color: var(--ink);
-  background: transparent;
-  border: none;
-  outline: none;
-  padding: 0 6px;
-}
-.field input::placeholder {
-  color: var(--ink);
-  opacity: 0.85;
-}
-.field:focus-within {
-  filter: contrast(1.6);
-}
 .send {
-  width: 82px;
+  width: 62px;
   line-height: 0;
-  align-self: center;
 }
 .send img {
   width: 100%;
@@ -531,7 +565,7 @@ img {
   opacity: 0.55;
   transition: opacity 0.2s;
 }
-.msg.bot:hover .rate,
+.say:hover .rate,
 .rate:focus-within {
   opacity: 1;
 }

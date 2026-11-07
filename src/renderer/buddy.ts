@@ -30,7 +30,9 @@ const bubble = $<HTMLDivElement>('bubble')
 const panel = $<HTMLElement>('panel')
 const log = $<HTMLDivElement>('log')
 const form = $<HTMLFormElement>('form')
-const input = $<HTMLInputElement>('input')
+const composer = form
+const say = $<HTMLDivElement>('say')
+const input = $<HTMLTextAreaElement>('input')
 const label = $<HTMLImageElement>('label')
 const chips = $<HTMLDivElement>('attachments')
 const drop = $<HTMLDivElement>('drop')
@@ -170,7 +172,7 @@ function overPoppy(e: MouseEvent): boolean {
 
 function overUi(e: MouseEvent): boolean {
   const el = document.elementFromPoint(e.clientX, e.clientY)
-  return !!el?.closest('#panel, #bubble')
+  return !!el?.closest('#form, #say, #log, #bubble')
 }
 
 let interactive = false
@@ -237,27 +239,87 @@ head.addEventListener('pointerup', () => {
   if (pressed) endDrag()
 })
 
-// ---------- chat panel ----------
+// ---------- chat: a comic strip ----------
+// The user's balloon (top right) is where they type; Poppy's answer goes in her own balloon under it.
+// When the user starts the next question, the last pair moves up into the faded earlier balloons.
 
 let replying = false
 let latestId = -1
-let replyEl: HTMLDivElement | null = null
 let replyMood: Mood | null = null
 let rateable = true
+/** The question and answer in the two big balloons right now (null: nothing sent yet). */
+let current: { question: string; files: AttachmentInfo[]; answer: string; error: boolean } | null = null
 
-function addMessage(who: 'you' | 'poppy', text: string): HTMLDivElement {
-  log.querySelector('.empty')?.remove()
-  const el = document.createElement('div')
-  el.className = `msg ${who === 'you' ? 'you' : 'bot'}`
-  setText(el, text)
-  log.appendChild(el)
-  log.scrollTop = log.scrollHeight
-  return el
+function sayText(): HTMLSpanElement {
+  let span = say.querySelector<HTMLSpanElement>(':scope > .text')
+  if (!span) {
+    span = document.createElement('span')
+    span.className = 'text'
+    say.appendChild(span)
+  }
+  return span
 }
 
-/** "good" / "not quite" under Poppy's latest reply: feedback he learns from. Handwritten, no drawings added. */
-function addRating(el: HTMLElement, replyId: number): void {
-  log.querySelectorAll('.msg .rate').forEach((r) => r.remove())
+/** Poppy's balloon: tool lines and questions above, her words below. */
+function setSay(text: string, cls: '' | 'hint' | 'error' = ''): void {
+  say.hidden = false
+  say.classList.toggle('hint', cls === 'hint')
+  say.classList.toggle('error', cls === 'error')
+  const span = sayText()
+  span.textContent = text
+  span.scrollTop = span.scrollHeight
+}
+
+function clearSay(): void {
+  say.replaceChildren()
+  say.hidden = true
+  say.classList.remove('hint', 'error')
+}
+
+/** With nothing said yet, Poppy's balloon gives a hint. */
+function showHint(): void {
+  if (current || replying || log.childElementCount) return
+  clearSay()
+  setSay('Ask me anything.\nI run on your own Ollama model.', 'hint')
+}
+
+// The earlier balloons shrink while Poppy's answer grows: keep the latest of them in view.
+new ResizeObserver(() => (log.scrollTop = log.scrollHeight)).observe(log)
+
+/** An earlier balloon, faded above the user's balloon. */
+function addOld(who: 'you' | 'poppy', text: string, files: AttachmentInfo[] = [], error = false): void {
+  const el = document.createElement('div')
+  el.className = `msg ${who === 'you' ? 'you' : 'bot'}${error ? ' error' : ''}`
+  setText(el, text)
+  showFilesIn(el, files)
+  log.appendChild(el)
+  log.scrollTop = log.scrollHeight
+}
+
+/** The user starts a new question: the last pair goes up with the earlier balloons. */
+function turnPage(): void {
+  if (current) {
+    addOld('you', current.question, current.files)
+    if (current.answer) addOld('poppy', current.answer, [], current.error)
+    current = null
+  }
+  composer.classList.remove('sent')
+  input.readOnly = false
+  input.value = ''
+  clearSay()
+  renderChips()
+  fitInput()
+}
+
+/** The text field grows with the question, up to a few lines. */
+function fitInput(): void {
+  input.style.height = 'auto'
+  input.style.height = `${input.scrollHeight}px`
+}
+
+/** "good" / "not quite" under Poppy's latest reply: feedback she learns from. Handwritten, no drawings added. */
+function addRating(replyId: number): void {
+  say.querySelectorAll(':scope > .rate').forEach((r) => r.remove())
   const box = document.createElement('span')
   box.className = 'rate'
   for (const [value, word] of [
@@ -274,14 +336,16 @@ function addRating(el: HTMLElement, replyId: number): void {
     })
     box.appendChild(b)
   }
-  el.appendChild(box)
+  say.appendChild(box)
 }
 
-function showEmpty(): void {
-  log.innerHTML = '<div class="empty">Ask me anything.<br>I run on your own Ollama model.</div>'
+/** The answer is in (or stopped): the user's balloon is free for the next question. */
+function finishReply(): void {
+  replying = false
+  input.readOnly = false
 }
 
-/** The window grows upward for the balloon (main does that); wait for it, so Poppy never jumps. */
+/** The window grows upward for the balloons (main does that); wait for it, so Poppy never jumps. */
 function afterGrow(then: () => void): void {
   let done = false
   const go = (): void => {
@@ -306,7 +370,8 @@ function openPanel(): void {
   afterGrow(() => {
     panel.hidden = false
     document.body.classList.add('chat-open')
-    if (!log.childElementCount) showEmpty()
+    showHint()
+    fitInput()
     api.focus()
     input.focus()
   })
@@ -315,7 +380,7 @@ function openPanel(): void {
 
 function closePanel(): void {
   panel.hidden = true
-  document.body.classList.remove('chat-open')
+  document.body.classList.remove('chat-open', 'whole')
   api.setChatOpen(false)
   if (!replying && state === 'listening') setState('bye', 1800)
 }
@@ -327,24 +392,43 @@ function togglePanel(): void {
 
 form.addEventListener('submit', (e) => {
   e.preventDefault()
+  if (replying || composer.classList.contains('sent')) return
   const text = input.value.trim()
   if (!text && !attached.length) return
   touch()
-  input.value = ''
-  log.querySelectorAll('.msg .rate').forEach((r) => r.remove())
-  const you = addMessage('you', text || 'Have a look at this.')
-  showFilesIn(you, attached)
-  const ids = attached.map((a) => a.id)
+  const question = text || 'Have a look at this.'
+  const files = attached
+  turnPage() // the earlier pair (if any) moves up
   attached = []
+  refused = []
+  current = { question, files, answer: '', error: false }
+  input.value = question
+  input.readOnly = true
+  composer.classList.add('sent')
+  document.body.classList.remove('whole')
   renderChips()
-  replyEl = addMessage('poppy', '…')
+  showFilesIn(chips, files)
+  fitInput()
+  setSay('…')
   replying = true
   replyMood = null
   latestId = Number.MAX_SAFE_INTEGER // accept the next reply id from main
-  setState(ids.length ? 'busy' : 'thinking') // busy: reading the attached files
-  api.sendChat(text, ids)
+  setState(files.length ? 'busy' : 'thinking') // busy: reading the attached files
+  api.sendChat(text, files.map((f) => f.id))
 })
 
+// Enter sends, Shift+Enter starts a new line.
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault()
+    form.requestSubmit()
+  }
+})
+// Typing after an answer starts the next question.
+input.addEventListener('beforeinput', () => {
+  if (!replying && composer.classList.contains('sent')) turnPage()
+})
+input.addEventListener('input', fitInput)
 input.addEventListener('focus', () => {
   if (!replying) setState('listening')
 })
@@ -354,7 +438,10 @@ input.addEventListener('blur', () => {
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (replying) api.stopChat()
+    if (replying) {
+      api.stopChat()
+      finishReply()
+    }
     closePanel()
   }
 })
@@ -363,10 +450,11 @@ function newChat(): void {
   api.resetChat()
   api.forgetFiles(attached.map((a) => a.id))
   attached = []
-  renderChips()
-  replying = false
-  replyEl = null
-  showEmpty()
+  current = null
+  finishReply()
+  log.replaceChildren()
+  turnPage()
+  showHint()
   setState('listening')
   input.focus()
 }
@@ -388,6 +476,12 @@ $('menu').addEventListener('click', () => api.showMenu())
 api.onNewChat(() => {
   if (panel.hidden) openPanel()
   newChat()
+})
+// ≡ → Show whole chat: the earlier balloons at full strength, with more room.
+api.onWholeChat(() => {
+  if (panel.hidden) openPanel()
+  document.body.classList.toggle('whole')
+  log.scrollTop = log.scrollHeight
 })
 
 // ---------- attachments ----------
@@ -434,13 +528,14 @@ function renderChips(): void {
 }
 
 function took(result: AttachResult): void {
+  if (!replying && composer.classList.contains('sent')) turnPage()
   attached = [...attached, ...result.added]
   refused = result.refused
   window.clearTimeout(refusedTimer)
   if (refused.length) {
     refusedTimer = window.setTimeout(() => {
       refused = []
-      renderChips()
+      if (!composer.classList.contains('sent')) renderChips()
     }, 6000)
   }
   renderChips()
@@ -452,7 +547,7 @@ async function pickFiles(): Promise<void> {
   took(await api.pickFiles(attached.length))
 }
 
-/** Small previews and names of the files under the user's message. */
+/** Small previews and names of the files with the user's question. */
 function showFilesIn(el: HTMLElement, files: AttachmentInfo[]): void {
   if (!files.length) return
   const box = document.createElement('span')
@@ -471,17 +566,16 @@ function showFilesIn(el: HTMLElement, files: AttachmentInfo[]): void {
     }
   }
   el.appendChild(box)
-  log.scrollTop = log.scrollHeight
 }
 
 $('attach').addEventListener('click', () => void pickFiles())
 api.onAttach(() => void pickFiles())
 
-// Drag files from Finder onto the chat window.
+// Drag files from Finder onto the chat.
 let dragDepth = 0
 const hasFiles = (e: DragEvent): boolean => !!e.dataTransfer?.types.includes('Files')
 window.addEventListener('dragenter', (e) => {
-  if (!hasFiles(e) || panel.hidden) return
+  if (!hasFiles(e) || panel.hidden || replying) return
   dragDepth++
   drop.hidden = false
 })
@@ -492,14 +586,14 @@ window.addEventListener('dragleave', () => {
 window.addEventListener('dragover', (e) => {
   if (!hasFiles(e)) return
   e.preventDefault()
-  if (e.dataTransfer) e.dataTransfer.dropEffect = panel.hidden ? 'none' : 'copy'
+  if (e.dataTransfer) e.dataTransfer.dropEffect = panel.hidden || replying ? 'none' : 'copy'
 })
 window.addEventListener('drop', async (e) => {
   e.preventDefault()
   dragDepth = 0
   drop.hidden = true
   const files = [...(e.dataTransfer?.files ?? [])]
-  if (!files.length || panel.hidden) return
+  if (!files.length || panel.hidden || replying) return
   touch()
   took(await api.addDroppedFiles(files, attached.length))
 })
@@ -518,10 +612,8 @@ api.onChatUpdate((u) => {
   rateable = !u.noRating
   if (u.text) {
     if (state !== 'talking') setState('talking')
-    if (replyEl) {
-      setText(replyEl, u.text)
-      log.scrollTop = log.scrollHeight
-    }
+    if (current) current.answer = u.text
+    setSay(u.text)
     showBubble(u.text)
   }
 })
@@ -532,9 +624,9 @@ api.onSpeaking((speaking) => {
 
 api.onChatSpoken((id) => {
   if (!replying || id !== latestId) return
-  replying = false
+  finishReply()
   touch()
-  if (replyEl && rateable && !replyEl.classList.contains('error')) addRating(replyEl, id)
+  if (rateable && !current?.error) addRating(id)
   const mood = replyMood && replyMood !== 'idle' ? replyMood : null
   if (mood) setState(mood, 6000, panel.hidden ? 'idle' : 'listening')
   else setState(panel.hidden ? 'idle' : 'listening')
@@ -543,26 +635,25 @@ api.onChatSpoken((id) => {
 
 api.onChatError((err) => {
   if (!replying || !acceptId(err.id)) return
-  replying = false
-  if (replyEl) {
-    setText(replyEl, err.message)
-    replyEl.classList.add('error')
+  finishReply()
+  if (current) {
+    current.answer = err.message
+    current.error = true
   }
+  setSay(err.message, 'error')
   setState(err.mood ?? 'sad', 8000)
   showBubble(err.message, 9000)
 })
 
 // ---------- tools ----------
 
-/** A small handwritten line above the reply: which tool Poppy is using or used. */
+/** A small handwritten line in Poppy's balloon, above her words: which tool she is using or used. */
 function toolNote(text: string, cls = ''): HTMLDivElement {
-  log.querySelector('.empty')?.remove()
   const el = document.createElement('div')
   el.className = `tool-note ${cls}`.trim()
   el.textContent = text
-  if (replyEl?.isConnected) log.insertBefore(el, replyEl)
-  else log.appendChild(el)
-  log.scrollTop = log.scrollHeight
+  say.hidden = false
+  say.insertBefore(el, sayText())
   return el
 }
 
@@ -628,7 +719,6 @@ api.onToolAsk((a) => {
     links.appendChild(b)
   }
   box.append(q, call, links)
-  log.scrollTop = log.scrollHeight
   askBoxes.set(a.askId, box)
   setState('hopeful')
   showBubble(a.question ? 'I have a question. Have a look in the chat.' : 'May I use a tool? Have a look in the chat.')
@@ -645,15 +735,17 @@ api.onToolAsked((askId) => {
 
 api.onOpenChat(() => openPanel())
 api.onForgotAll(() => {
-  replying = false
-  replyEl = null
-  showEmpty()
+  current = null
+  finishReply()
+  log.replaceChildren()
+  turnPage()
+  showHint()
 })
 
-// The last conversation, from Poppy's memory, so a restart doesn't wipe the chat.
+// The last conversation, from Poppy's memory, so a restart doesn't wipe the chat: the earlier balloons.
 api.chatHistory().then((past) => {
-  if (!past.length || log.querySelector('.msg')) return
-  for (const m of past) addMessage(m.role === 'user' ? 'you' : 'poppy', m.text)
+  if (!past.length || current || log.childElementCount) return
+  for (const m of past) addOld(m.role === 'user' ? 'you' : 'poppy', m.text)
 })
 
 api.getSettings().then((s) => {

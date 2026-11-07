@@ -10,35 +10,37 @@
     <link rel="stylesheet" href="./buddy.css" />
   </head>
   <body>
-    <!-- The chat is one big speech balloon coming from Poppy. Every pencil piece is cut from the
-         user's picture (docs/design/chat-window.jpg): the balloon is Poppy's speech bubble, stretched. -->
+    <!-- The chat is a comic strip: the user's balloon at the top right (that's where you type), Poppy's
+         answer in her own balloon under it, its tail on her head, and earlier balloons fading out above.
+         Every pencil piece is cut from the user's picture (docs/design/chat-window.jpg). -->
     <section id="panel" class="panel" hidden aria-label="Chat with Poppy">
-      <header id="panel-head" class="head">
-        <button id="settings" class="icon" type="button" aria-label="Settings" title="Settings">
-          <img src="../../assets/chat/gear.png" alt="" draggable="false" />
-        </button>
-        <button id="menu" class="icon" type="button" aria-label="Menu" title="Menu">
-          <img src="../../assets/chat/menu.png" alt="" draggable="false" />
-        </button>
-        <button id="hide" class="icon" type="button" aria-label="Hide Poppy" title="Hide Poppy">
-          <img src="../../assets/chat/minimize.png" alt="" draggable="false" />
-        </button>
-        <button id="close" class="icon" type="button" aria-label="Close chat" title="Close chat">
-          <img src="../../assets/chat/close.png" alt="" draggable="false" />
-        </button>
-      </header>
       <div id="log" class="log" aria-live="polite"></div>
-      <div id="attachments" class="attachments" aria-label="Attached files"></div>
-      <button id="attach" class="attach" type="button">attach</button>
-      <div id="drop" class="drop" hidden>drop to attach</div>
-      <form id="form" class="composer">
-        <label class="field">
-          <input id="input" autocomplete="off" spellcheck="true" placeholder="Ask Poppy anything" />
-        </label>
-        <button id="send" class="send" type="submit" aria-label="Send">
-          <img src="../../assets/chat/send.png" alt="" draggable="false" />
-        </button>
+      <form id="form" class="msg you composer">
+        <header id="panel-head" class="head">
+          <button id="settings" class="icon" type="button" aria-label="Settings" title="Settings">
+            <img src="../../assets/chat/gear.png" alt="" draggable="false" />
+          </button>
+          <button id="menu" class="icon" type="button" aria-label="Menu" title="Menu">
+            <img src="../../assets/chat/menu.png" alt="" draggable="false" />
+          </button>
+          <button id="hide" class="icon" type="button" aria-label="Hide Poppy" title="Hide Poppy">
+            <img src="../../assets/chat/minimize.png" alt="" draggable="false" />
+          </button>
+          <button id="close" class="icon" type="button" aria-label="Close chat" title="Close chat">
+            <img src="../../assets/chat/close.png" alt="" draggable="false" />
+          </button>
+        </header>
+        <textarea id="input" rows="1" autocomplete="off" spellcheck="true" placeholder="Ask Poppy anything…"></textarea>
+        <div id="attachments" class="attachments" aria-label="Attached files"></div>
+        <div class="row">
+          <button id="attach" class="attach" type="button">attach</button>
+          <button id="send" class="send" type="submit" aria-label="Send">
+            <img src="../../assets/chat/send.png" alt="" draggable="false" />
+          </button>
+        </div>
       </form>
+      <div id="say" class="say" hidden></div>
+      <div id="drop" class="drop" hidden>drop to attach</div>
     </section>
     <div id="bubble" class="bubble" hidden></div>
     <div id="poppy" class="poppy"><div class="shadow"></div></div>

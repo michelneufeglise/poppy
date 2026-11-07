@@ -2,7 +2,7 @@
 
 **A hand-drawn desk buddy for macOS that talks with your local Ollama models, or with Claude if you like.**
 
-Poppy is a small pencil-drawn character who sits on your desktop. Click him and a big comic speech balloon pops up above him: that's where you chat. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. And he keeps learning: he remembers what you tell him, builds a small map of the people and things in your life, and learns from your feedback how you like to be answered. By default everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking. If you want quicker, smarter answers, you can give Poppy an Anthropic API key and he answers with Claude Haiku, with Ollama as the backup.
+Poppy is a small pencil-drawn character who sits on your desktop. Click him and the chat opens like a comic strip: you type in your own speech balloon, and he answers in his. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. And he keeps learning: he remembers what you tell him, builds a small map of the people and things in your life, and learns from your feedback how you like to be answered. By default everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking. If you want quicker, smarter answers, you can give Poppy an Anthropic API key and he answers with Claude Haiku, with Ollama as the backup.
 
 ![Poppy on the desktop, the chat balloon and the settings window](docs/screenshots/overview.png)
 
@@ -125,12 +125,14 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | You want to… | Do this |
 | --- | --- |
 | Open the chat | Click Poppy |
-| Move Poppy | Drag him (or drag the chat balloon by its top edge) |
-| Close the chat | The **×** at the top of the balloon, or press Esc |
-| Hide Poppy | The **–** at the top of the balloon. Bring him back from the menu-bar icon → Show Poppy |
-| Start a new conversation | The **≡** menu at the top of the balloon → New chat |
+| Ask something | Type in your balloon (top right) and press Enter; Shift+Enter starts a new line |
+| Move Poppy | Drag him (or drag your balloon by its top edge, next to the icons) |
+| Close the chat | The **×** at the top of your balloon, or press Esc |
+| Hide Poppy | The **–** at the top of your balloon. Bring him back from the menu-bar icon → Show Poppy |
+| Start a new conversation | The **≡** menu at the top of your balloon → New chat |
+| Read back the conversation | Earlier balloons fade out above yours: hover or scroll them, or the **≡** menu → Show whole chat |
 | Turn the voice on or off | The **≡** menu → Voice, or the menu-bar icon |
-| Open settings | The gear at the top of the balloon, or the menu-bar icon → Settings… |
+| Open settings | The gear at the top of your balloon, or the menu-bar icon → Settings… |
 | Put Poppy back in the corner | Menu-bar icon → Reset position |
 | Tell Poppy an answer was good, or not | Click **good** or **not quite** under his latest reply |
 | See what Poppy knows | Ask "what do you know about me?", or the **≡** menu → Memory… |
@@ -140,7 +142,7 @@ While Poppy works you'll see him change: *listening* while you type, *thinking* 
 
 ## Attachments
 
-Click **attach** in the balloon, choose **Attach file…** from the ≡ menu, or simply **drag files onto the balloon**. Each file shows up as a small name tag above the input; click its × to remove it. Then type your question (or nothing at all) and press Send.
+Click **attach** in your balloon, choose **Attach file…** from the ≡ menu, or simply **drag files onto the chat**. Each file shows up as a small name tag under your question; click its × to remove it. Then type your question (or nothing at all) and press Send.
 
 | Kind | Files | What Poppy does with it |
 | --- | --- | --- |
@@ -162,7 +164,7 @@ Poppy can't retrain his language model (Ollama runs models, it doesn't train the
 3. **Feedback.** Click **good** or **not quite** under a reply, or simply correct him ("no, I meant…", "too long"). Poppy turns that into a lesson about how you like to be answered.
 4. **Reflect, when it's quiet.** After 10 quiet minutes (at most once an hour) he tidies up: merges duplicate facts and names, lets facts that never come up slowly fade, and rewrites his **notebook**, a short list of rules for himself that's part of every reply.
 
-Your conversation is saved too, so after a restart the balloon shows where you left off.
+Your conversation is saved too, so after a restart the earlier balloons show where you left off.
 
 **You stay in control.** The **Memory** window (≡ menu → Memory…, or Settings → Open memory…) lists everything Poppy knows: facts about you, his notebook and lessons, and the people and things with their links. Click the × next to anything to delete it. **Tidy up now** runs the reflection straight away, and **Forget everything** wipes all chats and memories. **Learn from our chats** (in the Memory window and Settings) pauses learning; what he already knows is still used.
 
@@ -204,7 +206,7 @@ Poppy can use tools from [MCP](https://modelcontextprotocol.io) servers while he
    A server is a local program (`command`, `args`, `env`, `cwd`) or a web address (`url`, with optional `headers`; a URL ending in `/sse` uses SSE). `toolFilter` keeps (`include`) or hides (`exclude`) tools by name. `${env:NAME}`, `${userHome}` and a leading `~/` are filled in. Add `"disabled": true` to switch one server off. Poppy restarts the servers when you save the file.
 3. **Chat.** Poppy shows a small pencil note (*used read_text_file*) and his busy pose while a tool runs.
 
-**He asks first.** A tool that the server marks as read-only runs right away. Anything else waits: Poppy asks *May I use this?* in the balloon, with the tool and what it would do, and runs it only after you click **yes**. **no**, Esc or no answer within 2 minutes means no. To skip the question for a server you trust, tick *Let … change things without asking* under that server in Settings.
+**He asks first.** A tool that the server marks as read-only runs right away. Anything else waits: Poppy asks *May I use this?* in his balloon, with the tool and what it would do, and runs it only after you click **yes**. **no**, Esc or no answer within 2 minutes means no. To skip the question for a server you trust, tick *Let … change things without asking* under that server in Settings.
 
 ### Poppy's own tools
 
@@ -372,7 +374,7 @@ Poppy is not redrawn in code. Every pose and every piece of the chat is cut stra
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
 - [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
 - [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): female Poppy's 48 poses.
-- [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (Poppy's bubble, stretched, is the whole chat balloon), the pencil icons, the input and the Send button. The settings window uses its header and frame.
+- [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (yours and Poppy's, stretched to fit the text), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
 The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).
 
