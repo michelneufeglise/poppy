@@ -105,5 +105,27 @@ export const DESK_HOLD: [number, number] = [4000, 7000]
 export const nextDeskPose = (last: Pose, rand: () => number = Math.random): PoppyState =>
   pick(DESK_POSES.filter((p) => p !== last), rand)
 
+/**
+ * Resting, with the chat closed: awake (the desk poses above) for the first minutes, then drowsy until
+ * the sleep time: sleepier poses and now and then a short nap. The drowsy stage starts sooner when
+ * nobody uses the Mac at all (no keyboard or mouse for AWAY_DROWSY_MS).
+ */
+export const DROWSY_AFTER_MS = 3 * 60_000
+export const AWAY_DROWSY_MS = 2 * 60_000
+export const DROWSY_POSES: readonly PoppyState[] = ['tired', 'lazy', 'chilling', 'dreamy', 'bored', 'sighing']
+export const NAP_CHANCE = 0.3
+export const NAP_HOLD: [number, number] = [10_000, 20_000]
+
+export type RestStage = 'awake' | 'drowsy'
+export const restStage = (idleMs: number, macIdleMs: number): RestStage =>
+  idleMs >= DROWSY_AFTER_MS || macIdleMs >= AWAY_DROWSY_MS ? 'drowsy' : 'awake'
+
+/** The next resting pose and how long it shows (then idle again). */
+export function nextRestPose(stage: RestStage, last: Pose, rand: () => number = Math.random): { pose: PoppyState; holdMs: number } {
+  if (stage === 'awake') return { pose: nextDeskPose(last, rand), holdMs: between(DESK_HOLD, rand) }
+  if (rand() < NAP_CHANCE) return { pose: 'sleeping', holdMs: between(NAP_HOLD, rand) }
+  return { pose: pick(DROWSY_POSES.filter((p) => p !== last), rand), holdMs: between(DESK_HOLD, rand) }
+}
+
 /** A time between [min, max]. */
 export const between = ([min, max]: [number, number], rand: () => number = Math.random): number => min + rand() * (max - min)

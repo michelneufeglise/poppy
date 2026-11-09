@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
 import { join } from 'node:path'
 import { composeMessage, contextSize } from '../shared/attachments'
 import { isForgetRequest } from '../shared/memory'
@@ -822,6 +822,8 @@ function registerIpc(): void {
   })
   ipcMain.handle('voice:list', () => listVoices())
   ipcMain.handle('listen:status', () => listener.status)
+  // How long nobody has used the Mac's keyboard or mouse (seconds): she gets sleepy sooner then.
+  ipcMain.handle('system:idle', () => powerMonitor.getSystemIdleTime())
   ipcMain.handle('listen:check', () => listener.check())
   ipcMain.on('listen:cancel', () => listener.cancel())
   ipcMain.handle('voice:kokoro-status', () => kokoro.status)

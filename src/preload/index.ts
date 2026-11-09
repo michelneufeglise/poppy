@@ -78,6 +78,8 @@ const api = {
   onVoiceCancel: (cb: () => void) => on('voice:cancel', cb),
   cancelVoice: () => ipcRenderer.send('listen:cancel'),
   listenStatus: () => ipcRenderer.invoke('listen:status') as Promise<ListenStatus>,
+  /** Seconds since the Mac's keyboard or mouse was last used. */
+  macIdleSeconds: () => ipcRenderer.invoke('system:idle') as Promise<number>,
   /** Permissions and on-device support for the chosen language (asks for nothing). */
   checkListen: () => ipcRenderer.invoke('listen:check') as Promise<string>,
   onListenStatus: (cb: (s: ListenStatus) => void) => on('listen:status', cb),

@@ -5,12 +5,12 @@ import { Motion } from './motion'
 import {
   DESK_AFTER_MS,
   DESK_EVERY,
-  DESK_HOLD,
   EXTRA_POSES,
   HEARING_EVERY,
   basePose,
   between,
-  nextDeskPose,
+  nextRestPose,
+  restStage,
   nextHearingPose,
   speakingPose,
   type Pose
@@ -191,27 +191,31 @@ function wake(): void {
   showBubble('Oh! Hi again.', 3500)
 }
 
-// While nothing happens on the desktop: now and then a little chill, a yawn a minute before
-// he dozes off (the "tired" drawing), then sleep.
-const CHILL_AFTER_MS = 2 * 60_000
-// And, every 30-60 seconds, a calm or body pose for a few seconds (poses.ts).
-let nextDeskAt = Date.now() + DESK_EVERY[0]
+// Resting on the desktop (poses.ts): awake with a calm pose every 30-60 seconds, then drowsy (sleepier
+// poses and short naps; sooner when nobody uses the Mac), a yawn a minute before she dozes off (the
+// "tired" drawing), then sleep until hovered or called.
+let macIdleMs = 0
+window.setInterval(() => {
+  api.macIdleSeconds().then((s) => (macIdleMs = s * 1000), () => (macIdleMs = 0))
+}, 15_000)
+let nextRestAt = Date.now() + DESK_EVERY[0]
 window.setInterval(() => {
   const quiet = panel.hidden && !replying
   const idleFor = Date.now() - lastActivity
   const yawnAt = sleepAfterMs - Math.min(60_000, sleepAfterMs / 2)
-  if (state === 'tired' && (!quiet || idleFor < yawnAt)) setState('idle')
+  // (A tired pose that is being held is a drowsy pose, not the yawn: it ends by itself.)
+  if (state === 'tired' && Date.now() >= holdUntil && (!quiet || idleFor < yawnAt)) setState('idle')
   if (!quiet || (state !== 'idle' && state !== 'tired')) return
   if (idleFor > sleepAfterMs) {
     bubble.hidden = true
     setState('sleeping')
   } else if (idleFor > yawnAt) {
     if (state === 'idle') setState('tired')
-  } else if (state === 'idle' && idleFor > CHILL_AFTER_MS && Math.random() < 1 / 48) {
-    setState('chilling', 20_000) // about once every 4 minutes, for 20 seconds
-  } else if (state === 'idle' && idleFor > DESK_AFTER_MS && Date.now() >= nextDeskAt) {
-    nextDeskAt = Date.now() + between(DESK_EVERY)
-    setState(nextDeskPose(state), between(DESK_HOLD), 'idle')
+  } else if (state === 'idle' && idleFor > DESK_AFTER_MS && Date.now() >= nextRestAt) {
+    const { pose, holdMs } = nextRestPose(restStage(idleFor, macIdleMs), state)
+    nextRestAt = Date.now() + between(DESK_EVERY)
+    if (pose === 'sleeping') bubble.hidden = true // a nap
+    setState(pose, holdMs, 'idle')
   }
 }, 5_000)
 

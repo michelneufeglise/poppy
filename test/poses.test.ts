@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   ATTENTIVE,
+  AWAY_DROWSY_MS,
   DESK_POSES,
+  DROWSY_AFTER_MS,
+  DROWSY_POSES,
+  NAP_HOLD,
+  nextRestPose,
+  restStage,
   RELATED,
   basePose,
   nextDeskPose,
@@ -39,6 +45,17 @@ describe('poses', () => {
     expect(ATTENTIVE).toContain(nextHearingPose('listening', 'female', always(0.9)))
     expect(ATTENTIVE).toContain(nextHearingPose('listening', 'male', always(0)))
     expect(nextHearingPose('wonder', 'male', always(0.3))).toBe('listening')
+  })
+
+  it('gets sleepy when nobody uses her or the Mac, with short naps', () => {
+    expect(restStage(60_000, 0)).toBe('awake')
+    expect(restStage(DROWSY_AFTER_MS, 0)).toBe('drowsy')
+    expect(restStage(60_000, AWAY_DROWSY_MS)).toBe('drowsy') // away from the Mac: sooner
+    const nap = nextRestPose('drowsy', 'idle', always(0.1))
+    expect(nap.pose).toBe('sleeping')
+    expect(nap.holdMs).toBeGreaterThanOrEqual(NAP_HOLD[0])
+    expect(DROWSY_POSES).toContain(nextRestPose('drowsy', 'idle', always(0.5)).pose)
+    expect(DESK_POSES).toContain(nextRestPose('awake', 'idle', always(0.1)).pose)
   })
 
   it('picks a different desk pose each time', () => {
