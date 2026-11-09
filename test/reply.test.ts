@@ -36,6 +36,14 @@ describe('parseReply', () => {
   it('knows the hello mood', () => {
     expect(parseReply('[hello] Hi there!')).toEqual({ text: 'Hi there!', mood: 'hello' })
   })
+  it('takes the answer\'s mood after a tool round', () => {
+    expect(parseReply("[curious] Let me check the weather.\n\n[happy] It's sunny in Utrecht!").mood).toBe('happy')
+    expect(parseReply('[curious] Let me check.').mood).toBe('curious')
+  })
+  it('maps a made-up tag to the nearest drawing', () => {
+    expect(parseReply('[chuckling] Why did the cat join a band?')).toEqual({ text: 'Why did the cat join a band?', mood: 'laughing' })
+    expect(parseReply('[chirping] Tweet.').mood).toBeNull()
+  })
   it('returns no mood when there is no tag', () => {
     expect(parseReply('Hello there.').mood).toBeNull()
   })

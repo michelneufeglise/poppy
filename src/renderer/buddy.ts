@@ -2,6 +2,19 @@ import { MAX_FILES } from '../shared/attachments'
 import { buddyOf } from '../shared/buddy'
 import { Blinker, type BlinkFrames } from './blink'
 import { Motion } from './motion'
+import {
+  DESK_AFTER_MS,
+  DESK_EVERY,
+  DESK_HOLD,
+  EXTRA_POSES,
+  HEARING_EVERY,
+  basePose,
+  between,
+  nextDeskPose,
+  nextHearingPose,
+  speakingPose,
+  type Pose
+} from './poses'
 import { FIRST_CHANGE_MS, isWaitingPose, nextWaitingDelay, nextWaitingPose } from './waiting'
 import { STATES, type AttachmentInfo, type AttachResult, type Character, type Mood, type PoppyState } from '../shared/types'
 
@@ -22,12 +35,14 @@ const labelUrls: Record<Character, Urls> = {
 // Polly's blink frames (scripts/cut_blink_female.py): <state>-half.png and <state>-closed.png.
 const blinkUrls = import.meta.glob('../../assets/female/blink/*.png', { eager: true, import: 'default' }) as Urls
 let character: Character = 'male'
-const urlFor = (s: PoppyState): string =>
-  (character === 'female' && urls.female[`../../assets/female/states/${s}.png`]) || urls.male[`../../assets/states/${s}.png`]
-const labelFor = (s: PoppyState): string =>
-  (character === 'female' && labelUrls.female[`../../assets/female/chat/label-${s}.png`]) ||
-  labelUrls.male[`../../assets/chat/label-${s}.png`]
-const blinkFor = (s: PoppyState): BlinkFrames | null => {
+// listening-2 is Polly's second listening drawing (poses.ts); Poppy has none, so he shows his listening.
+const urlFor = (s: Pose): string =>
+  (character === 'female' && urls.female[`../../assets/female/states/${s}.png`]) || urls.male[`../../assets/states/${basePose(s)}.png`]
+const labelFor = (pose: Pose): string => {
+  const s = basePose(pose)
+  return (character === 'female' && labelUrls.female[`../../assets/female/chat/label-${s}.png`]) || labelUrls.male[`../../assets/chat/label-${s}.png`]
+}
+const blinkFor = (s: Pose): BlinkFrames | null => {
   const closed = character === 'female' && blinkUrls[`../../assets/female/blink/${s}-closed.png`]
   return closed ? { closed, half: blinkUrls[`../../assets/female/blink/${s}-half.png`] } : null
 }
@@ -59,11 +74,12 @@ function setText(el: HTMLElement, text: string): void {
 
 // ---------- drawings ----------
 
-const imgs = {} as Record<PoppyState, HTMLImageElement>
-const masks = {} as Record<PoppyState, { w: number; h: number; alpha: Uint8ClampedArray } | undefined>
+const POSES: readonly Pose[] = [...STATES, ...EXTRA_POSES]
+const imgs = {} as Record<Pose, HTMLImageElement>
+const masks = {} as Record<Pose, { w: number; h: number; alpha: Uint8ClampedArray } | undefined>
 
 /** Loads a drawing and keeps its transparency, so only Poppy himself (or herself) catches the mouse. */
-function load(s: PoppyState): void {
+function load(s: Pose): void {
   const img = imgs[s]
   const src = urlFor(s)
   if (img.src === new URL(src, location.href).href) return
@@ -84,7 +100,7 @@ const layer = (parent: HTMLElement): HTMLDivElement => parent.appendChild(Object
 const leanLayer = layer(poppy)
 const reactLayer = layer(leanLayer)
 const loopLayer = layer(reactLayer)
-for (const s of STATES) {
+for (const s of POSES) {
   const img = document.createElement('img')
   img.alt = ''
   img.draggable = false
@@ -103,7 +119,7 @@ function useCharacter(next: Character): void {
   if (!hearing) $<HTMLTextAreaElement>('input').placeholder = `Ask ${name} anything…`
   $('panel').setAttribute('aria-label', `Chat with ${name}`)
   for (const attr of ['aria-label', 'title']) $('hide').setAttribute(attr, `Hide ${name}`)
-  for (const s of STATES) load(s)
+  for (const s of POSES) load(s)
   if (!first) label.src = labelFor(state)
   blinker.show(blinkFor(first ? 'idle' : state)) // (state isn't set up yet on the first call)
 }
@@ -111,24 +127,24 @@ useCharacter('male')
 
 // ---------- state ----------
 
-let state: PoppyState = 'idle'
+let state: Pose = 'idle'
 let holdTimer = 0
 /** A mood shown for a while (holdMs): the waiting poses leave it alone until then. */
 let holdUntil = 0
 let lastActivity = Date.now()
 let sleepAfterMs = 10 * 60_000
 
-function setState(next: PoppyState, holdMs = 0, then: PoppyState = 'idle'): void {
+function setState(next: Pose, holdMs = 0, then: Pose = 'idle'): void {
   window.clearTimeout(holdTimer)
   holdUntil = holdMs ? Date.now() + holdMs : 0
   if (next !== state) {
     imgs[state].classList.remove('on')
     imgs[next].classList.add('on')
     state = next
-    poppy.className = `poppy s-${next}`
+    poppy.className = `poppy s-${basePose(next)}`
     label.src = labelFor(next)
-    label.classList.toggle('two-lines', TWO_LINE_LABELS.has(next))
-    motion.setState(next)
+    label.classList.toggle('two-lines', TWO_LINE_LABELS.has(basePose(next)))
+    motion.setState(basePose(next))
     blinker.show(blinkFor(next))
   }
   // "listening" only makes sense while the chat is open; it may have closed during the hold.
@@ -150,8 +166,8 @@ function restartWaiting(): void {
 }
 function waitStep(): void {
   if (panel.hidden) return
-  const quiet = !replying && !hearing && Date.now() >= holdUntil && isWaitingPose(state) && !input.value
-  if (quiet) setState(nextWaitingPose(state, Date.now() - waitSince))
+  const quiet = !replying && !hearing && Date.now() >= holdUntil && isWaitingPose(basePose(state)) && !input.value
+  if (quiet) setState(nextWaitingPose(basePose(state), Date.now() - waitSince))
   waitTimer = window.setTimeout(waitStep, nextWaitingDelay())
 }
 
@@ -178,6 +194,8 @@ function wake(): void {
 // While nothing happens on the desktop: now and then a little chill, a yawn a minute before
 // he dozes off (the "tired" drawing), then sleep.
 const CHILL_AFTER_MS = 2 * 60_000
+// And, every 30-60 seconds, a calm or body pose for a few seconds (poses.ts).
+let nextDeskAt = Date.now() + DESK_EVERY[0]
 window.setInterval(() => {
   const quiet = panel.hidden && !replying
   const idleFor = Date.now() - lastActivity
@@ -189,10 +207,13 @@ window.setInterval(() => {
     setState('sleeping')
   } else if (idleFor > yawnAt) {
     if (state === 'idle') setState('tired')
-  } else if (state === 'idle' && idleFor > CHILL_AFTER_MS && Math.random() < 1 / 16) {
+  } else if (state === 'idle' && idleFor > CHILL_AFTER_MS && Math.random() < 1 / 48) {
     setState('chilling', 20_000) // about once every 4 minutes, for 20 seconds
+  } else if (state === 'idle' && idleFor > DESK_AFTER_MS && Date.now() >= nextDeskAt) {
+    nextDeskAt = Date.now() + between(DESK_EVERY)
+    setState(nextDeskPose(state), between(DESK_HOLD), 'idle')
   }
-}, 15_000)
+}, 5_000)
 
 // ---------- mouse: click-through, drag, click ----------
 
@@ -447,7 +468,7 @@ function closePanel(): void {
   panel.hidden = true
   document.body.classList.remove('chat-open', 'whole')
   api.setChatOpen(false)
-  if (!replying && isWaitingPose(state)) setState('bye', 1800)
+  if (!replying && isWaitingPose(basePose(state))) setState('bye', 1800)
 }
 
 function togglePanel(): void {
@@ -477,6 +498,7 @@ form.addEventListener('submit', (e) => {
   setSay('…')
   replying = true
   replyMood = null
+  speakStep = -1
   latestId = Number.MAX_SAFE_INTEGER // accept the next reply id from main
   setState(files.length ? 'busy' : 'thinking') // busy: reading the attached files
   api.sendChat(text, files.map((f) => f.id))
@@ -497,14 +519,14 @@ input.addEventListener('input', () => {
     api.cancelVoice()
   }
   // Typing: she listens again, and the waiting starts over.
-  if (!replying && Date.now() >= holdUntil && isWaitingPose(state)) setState('listening')
+  if (!replying && Date.now() >= holdUntil && isWaitingPose(basePose(state))) setState('listening')
   restartWaiting()
 })
 input.addEventListener('focus', () => {
   if (!replying && Date.now() >= holdUntil) setState('listening')
 })
 input.addEventListener('blur', () => {
-  if (!replying && state === 'listening') setState('idle')
+  if (!replying && basePose(state) === 'listening') setState('idle')
 })
 
 window.addEventListener('keydown', (e) => {
@@ -682,19 +704,33 @@ function acceptId(id: number): boolean {
 api.onChatUpdate((u) => {
   if (!replying || !acceptId(u.id)) return
   touch()
+  const newMood = u.mood !== replyMood
   replyMood = u.mood
   rateable = !u.noRating
   if (u.text) {
-    if (state !== 'talking') setState('talking')
+    // The first words, or a new mood (the answer after a tool round): show it now. Without a voice,
+    // the next pose comes every few seconds of text.
+    if (speakStep < 0 || newMood) {
+      speakStep = 0
+      stepSpeaking()
+    } else if (Date.now() - lastStepAt > STEP_WITHOUT_VOICE_MS) stepSpeaking()
     if (current) current.answer = u.text
     setSay(u.text)
     showBubble(u.text)
   }
 })
 
+// Each spoken sentence: talking and her mood (or a close relative) take turns (poses.ts).
 api.onSpeaking((speaking) => {
-  if (speaking && replying) setState('talking')
+  if (speaking && replying) stepSpeaking()
 })
+let speakStep = -1
+let lastStepAt = 0
+const STEP_WITHOUT_VOICE_MS = 3000
+function stepSpeaking(): void {
+  setState(speakingPose(replyMood, Math.max(0, speakStep++)))
+  lastStepAt = Date.now()
+}
 
 api.onChatSpoken((id) => {
   if (!replying || id !== latestId) return
@@ -812,7 +848,16 @@ api.onToolAsked((askId) => {
 // user's balloon as if typed, and the finished question is sent the same way as a typed one.
 
 let draft = ''
+// While she hears a spoken question: listening drawings (Polly has two) and attentive poses (poses.ts).
+let hearTimer = 0
+function hearStep(): void {
+  if (!hearing) return
+  if (!replying) setState(nextHearingPose(state, character))
+  hearTimer = window.setTimeout(hearStep, between(HEARING_EVERY))
+}
+
 function endHearing(): void {
+  window.clearTimeout(hearTimer)
   hearing = false
   composer.classList.remove('hearing')
   input.placeholder = `Ask ${buddyOf(character).name} anything…`
@@ -830,7 +875,10 @@ api.onVoiceWake(() => {
   input.placeholder = 'listening…'
   fitInput()
   if (!current && !log.childElementCount) setSay("I'm listening…", 'hint')
+  // Her name was heard: listening at once, then its versions while the question comes in.
   setState('listening')
+  window.clearTimeout(hearTimer)
+  hearTimer = window.setTimeout(hearStep, between(HEARING_EVERY))
   restartWaiting()
 })
 api.onVoiceHeard((text) => {

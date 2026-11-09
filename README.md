@@ -141,7 +141,7 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | See what Poppy knows | Ask "what do you know about me?", or the **≡** menu → Memory… |
 | Undo what he just learned | Say "forget that" |
 
-While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, *talking* while he speaks, and then the mood the model picked. While the chat is open and waiting for you, he doesn't just stand there: every 6–12 seconds he switches between calm waiting poses (curious, hopeful, wonder, dreamy, playful, thinking…), and after a minute bored, sighing or lazy can come up too. Start typing and he's back to listening. While the chat is open, the name of the current state is written next to his feet.
+While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, and while he speaks *talking* and the mood the model picked take turns, sentence by sentence (in longer replies with a close relative now and then: happy can become cheerful or laughing, thinking can become focused). After a web search or another tool, the answer's own mood counts, not the "let me look" one. Made-up mood tags get the nearest drawing ([chuckling] → laughing). While the chat is open and waiting for you, he doesn't just stand there: every 6–12 seconds he switches between calm waiting poses (curious, hopeful, wonder, dreamy, playful, thinking…), and after a minute bored, sighing or lazy can come up too. Start typing and he's back to listening. When you call him by voice he shows *listening* at once, and while you speak he switches between his listening drawings (Polly has two) and attentive poses (curious, wonder, hopeful). With the chat closed, every 30–60 seconds he briefly shows a calm or body pose (dreamy, playful, cuddly, bored, lazy, hungry, thirsty, sneaky…). While the chat is open, the name of the current state is written next to his feet.
 
 ## Attachments
 
@@ -348,7 +348,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npx electron .` | Start the built app |
 | `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
 | `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
-| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, waiting poses, voice input rules) |
+| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, waiting poses, pose picking, voice input rules) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
@@ -405,7 +405,7 @@ Poppy is not redrawn in code. Every pose and every piece of the chat is cut stra
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
 - [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
 - [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): Polly's (female) 48 poses. The `-half.jpg` and `-closed.jpg` files next to them ([`emotions-sheet-female-half.jpg`](docs/design/emotions-sheet-female-half.jpg), [`-closed.jpg`](docs/design/emotions-sheet-female-closed.jpg), [`-2-half.jpg`](docs/design/emotions-sheet-female-2-half.jpg), [`-2-closed.jpg`](docs/design/emotions-sheet-female-2-closed.jpg)) are copies with her eyes half closed and closed; only the eyes are taken from them, for her blink.
-- [`docs/design/listening-female.jpg`](docs/design/listening-female.jpg): Polly's listening pose, a drawing of its own. Its blink comes from the front panels of [`listening-female-blink.jpg`](docs/design/listening-female-blink.jpg), lined up with it.
+- [`docs/design/listening-female.jpg`](docs/design/listening-female.jpg): Polly's listening pose, a drawing of its own. Its blink comes from the front panels of [`listening-female-blink.jpg`](docs/design/listening-female-blink.jpg), lined up with it. Her first sheet's listening pose is kept as a second one (`listening-2`), shown while she hears a spoken question.
 - [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (yours and Poppy's, stretched to fit the text), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
 The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).

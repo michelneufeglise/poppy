@@ -58,6 +58,7 @@ Sad or worried: [sad] [crying] [sighing] [anxious] [nervous] [scared] [shy]
 Grumpy (only playfully, never at the user): [grumpy] [frustrated] [angry] [defiant] [disgusted] [bored] [sneaky]
 Body: [tired] [lazy] [hungry] [thirsty] [sick]
 Greetings: [hello] when greeting, [sad-hello] for a sad hello, [bye] when saying goodbye. Calm: [idle]
+Use the whole range: pick the feeling that fits this reply best, not the same few every time. [curious] is for real curiosity, not for every question or search; [hello] only when greeting.
 Example: "[happy] Nice, that worked!" Never use any other tags.`
 
 /** Added to the instructions when tools are on. */

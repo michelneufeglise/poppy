@@ -1,13 +1,27 @@
 import { MOODS, type Mood } from './types'
 
-const MOOD_TAG = new RegExp(`\\[(${MOODS.join('|')})\\]`, 'i')
+/**
+ * Tags the model sometimes makes up instead of one from the list, and the drawing that fits them
+ * (seen: [chuckling], [chirping]). Unknown ones still give no mood.
+ */
+export const MOOD_ALIASES: Record<string, Mood> = {
+  chuckling: 'laughing', giggling: 'laughing', amused: 'laughing', grinning: 'cheerful', smiling: 'happy',
+  joyful: 'happy', delighted: 'excited', thrilled: 'excited', thoughtful: 'thinking', pondering: 'thinking',
+  puzzled: 'confused', worried: 'anxious', calm: 'chilling', relaxed: 'chilling', sleepy: 'tired',
+  embarrassed: 'shy', annoyed: 'grumpy', mischievous: 'sneaky', loving: 'cuddly', warm: 'cuddly',
+  impressed: 'wonder', amazed: 'wonder', greeting: 'hello', waving: 'hello', goodbye: 'bye', sorry: 'sad',
+  helpful: 'happy', friendly: 'happy', neutral: 'idle'
+}
+const MOOD_TAG = new RegExp(`\\[(${[...MOODS, ...Object.keys(MOOD_ALIASES)].join('|')})\\]`, 'gi')
 const MOOD_TAGS = new RegExp(`\\s*\\[(${MOODS.join('|')})\\]\\s*`, 'gi')
 
 /**
  * The reply body with thinking and mood tags removed, but markdown kept
  * (the voice needs it to spot code blocks and tables).
  * - removes <think>…</think> blocks, including one that is still open
- * - reads the first mood tag, like [happy], and removes all mood tags
+ * - reads the mood tag, like [happy], and removes all mood tags; with more than one (a reply after a
+ *   tool round starts with its own tag) the last one counts: "[curious] Let me look… [happy] It's sunny!"
+ *   is a happy answer
  * - hides a tag that is only half streamed so far, like "[hap"
  */
 export function splitReply(raw: string): { body: string; mood: Mood | null } {
@@ -15,8 +29,9 @@ export function splitReply(raw: string): { body: string; mood: Mood | null } {
   const openThink = s.search(/<think>/i)
   if (openThink !== -1) s = s.slice(0, openThink)
 
-  const match = s.match(MOOD_TAG)
-  const mood = match ? (match[1].toLowerCase() as Mood) : null
+  const match = [...s.matchAll(MOOD_TAG)].at(-1)
+  const tag = match?.[1].toLowerCase()
+  const mood = tag ? (MOOD_ALIASES[tag] ?? (tag as Mood)) : null
 
   s = s.replace(MOOD_TAGS, ' ')
   s = s.replace(/(^|\n)[ \t]*\[[a-z-]+\][ \t]*/gi, '$1') // an invented tag at the start (or after a tool round)

@@ -143,7 +143,10 @@ def main() -> None:
     tray_icons(STATES / "idle.png", ROOT / "assets/female/tray")
     print("saved tray icons")
     female_header()
-    # Listening has its own drawing now; the header above keeps the sheet's.
+    # Listening has its own drawing now; the header above keeps the sheet's, and so does listening-2
+    # (a second listening pose, shown now and then while she hears a question).
+    shutil.copyfile(STATES / "listening.png", STATES / "listening-2.png")
+    print("saved listening-2 (the sheet's listening pose)")
     cut_listening_female.main()
 
 if __name__ == "__main__":

@@ -45,9 +45,10 @@ SKIP = {
     "sad",  # the copies added tears
     # sheet 2
     "crying",  # the closed copy moved her hands away from her eyes
-    # her own drawing now: cut_listening_female.py makes its blink frames (run after this script)
-    "listening",
 }
+# The sheet's listening pose is listening-2 now (its own drawing is listening: cut_listening_female.py
+# makes those frames, run after this script).
+RENAME = {"listening": "listening-2"}
 NO_HALF = {"cheerful"}  # the half copy also changed her mouth
 
 
@@ -84,7 +85,8 @@ def cut_frames(sheet: np.ndarray, stem: str, names, rows, zoom: float, scratch: 
     for name in states:
         if name in SKIP:
             continue
-        open_ = cv2.imread(str(ROOT / "assets/female/states" / f"{name}.png"), cv2.IMREAD_UNCHANGED).astype(int)
+        pose = RENAME.get(name, name)
+        open_ = cv2.imread(str(ROOT / "assets/female/states" / f"{pose}.png"), cv2.IMREAD_UNCHANGED).astype(int)
         changed = {}
         for frame in FRAMES:
             # How much of the patch lands on this pose: the difference between the two cut-outs.
@@ -96,8 +98,8 @@ def cut_frames(sheet: np.ndarray, stem: str, names, rows, zoom: float, scratch: 
         for frame in FRAMES:
             if frame == "half" and (name in NO_HALF or changed["half"] < MIN_CHANGE):
                 continue
-            shutil.copyfile(scratch / f"{stem}-{frame}" / f"{name}.png", OUT / f"{name}-{frame}.png")
-        print(f"  {name}: {'closed only' if not (OUT / f'{name}-half.png').exists() else 'half + closed'}")
+            shutil.copyfile(scratch / f"{stem}-{frame}" / f"{name}.png", OUT / f"{pose}-{frame}.png")
+        print(f"  {pose}: {'closed only' if not (OUT / f'{pose}-half.png').exists() else 'half + closed'}")
 
 
 def main() -> None:
@@ -107,7 +109,8 @@ def main() -> None:
         scratch = Path(tmp)
         z = zoom2(sheet1, sheet2, scratch)
         print(f"zoom sheet 2: {z:.2f}")
-        kept = {p.name: p.read_bytes() for p in OUT.glob("listening-*.png")}  # from cut_listening_female.py
+        # from cut_listening_female.py
+        kept = {n: (OUT / n).read_bytes() for n in ("listening-half.png", "listening-closed.png") if (OUT / n).exists()}
         if OUT.exists():
             shutil.rmtree(OUT)
         OUT.mkdir(parents=True)
