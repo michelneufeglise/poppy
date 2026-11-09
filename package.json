@@ -18,6 +18,8 @@
     "cut-sheet2": "cd scripts && python3 cut_sheet2.py",
     "cut-sheet-female": "cd scripts && python3 cut_sheet_female.py",
     "cut-blink-female": "cd scripts && python3 cut_blink_female.py",
+    "cut-listening-female": "cd scripts && python3 cut_listening_female.py",
+    "build-listener": "mkdir -p out && xcrun swiftc -O sidecar/listen.swift -o out/listen -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker sidecar/listen-Info.plist",
     "searxng": "sh scripts/searxng.sh",
     "test": "vitest run",
     "cut-chat": "python3 scripts/cut_chat.py"

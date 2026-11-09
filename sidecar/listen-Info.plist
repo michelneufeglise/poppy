@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>app.poppy.listen</string>
+	<key>CFBundleName</key>
+	<string>Poppy</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Poppy listens for her name, and for your question after it. It all stays on this Mac.</string>
+</dict>
+</plist>

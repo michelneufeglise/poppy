@@ -20,6 +20,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - [Claude as Poppy's brain (optional)](#claude-as-poppys-brain-optional)
 - [Tools (MCP)](#tools-mcp)
 - [Voices and languages](#voices-and-languages)
+- [Voice input: say "Poppy" or "Polly"](#voice-input-say-poppy-or-polly)
 - [Settings](#settings)
 - [Privacy](#privacy)
 - [Troubleshooting](#troubleshooting)
@@ -34,7 +35,8 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Lives on your desktop.** A see-through, always-on-top window in the bottom-right corner. Drag him anywhere; he remembers the spot. Clicks go straight through to your desktop except on Poppy himself.
 - **Chats with your local model.** Replies stream in from Ollama, word by word. Or, if you add an API key, from Claude, with Ollama taking over when Claude can't answer.
 - **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 48 poses, all hand-drawn: from happy and curious to grumpy, hungry and chilling with sunglasses. He also waves when you close the chat, yawns before he falls asleep, and looks spooked when he can't reach Ollama.
-- **Poppy or Polly.** The female version is called **Polly**. Pick **Polly (female)** in Settings (or the menu-bar icon → Poppy or Polly) and every pose, the state names and the menu-bar icon switch to her drawings (the same 48 states, with cat ears), and she introduces herself as Polly. Polly also blinks, in 33 of her 48 poses (all but the ones with closed eyes, sunglasses or tears). The app itself is still called Poppy.
+- **Poppy or Polly.** The female version is called **Polly**. Pick **Polly (female)** in Settings (or the menu-bar icon → Poppy or Polly) and every pose, the state names and the menu-bar icon switch to her drawings (the same 48 states, with cat ears), and she introduces herself as Polly. Polly also blinks, in 33 of her 48 poses (all but the ones with closed eyes, sunglasses or tears), and her listening pose is a drawing of its own (hand cupped behind her ear). The app itself is still called Poppy.
+- **Listens for its name (optional).** Say "Polly" (or "Poppy") and your question: the music goes down, the chat opens, your words appear in your balloon, and a short pause sends it. Apple's speech recognition does this on your Mac only.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
 - **Uses tools.** The weather, web search and your Spotify app are built in; hook up MCP servers (files, apps) for more. Anything that changes something waits for your yes (music controls excepted).
@@ -132,13 +134,14 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | Start a new conversation | The **≡** menu at the top of your balloon → New chat |
 | Read back the conversation | Earlier balloons fade out above yours: hover or scroll them, or the **≡** menu → Show whole chat |
 | Turn the voice on or off | The **≡** menu → Voice, or the menu-bar icon |
+| Ask out loud | Turn on **Listen for "Poppy"** (Settings, the **≡** menu or the menu-bar icon), then say "Poppy, …" or "Polly, …". See [Voice input](#voice-input-say-poppy-or-polly) |
 | Open settings | The gear at the top of your balloon, or the menu-bar icon → Settings… |
 | Put Poppy back in the corner | Menu-bar icon → Reset position |
 | Tell Poppy an answer was good, or not | Click **good** or **not quite** under his latest reply |
 | See what Poppy knows | Ask "what do you know about me?", or the **≡** menu → Memory… |
 | Undo what he just learned | Say "forget that" |
 
-While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, *talking* while he speaks, and then the mood the model picked. While the chat is open, the name of the current state is written next to his feet.
+While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, *talking* while he speaks, and then the mood the model picked. While the chat is open and waiting for you, he doesn't just stand there: every 6–12 seconds he switches between calm waiting poses (curious, hopeful, wonder, dreamy, playful, thinking…), and after a minute bored, sighing or lazy can come up too. Start typing and he's back to listening. While the chat is open, the name of the current state is written next to his feet.
 
 ## Attachments
 
@@ -253,6 +256,22 @@ Poppy picks the language once per reply, by looking at the reply and at your mes
 
 More Mac voices can be added in **System Settings → Accessibility → Spoken Content → System Voice → Manage Voices…**.
 
+## Voice input: say "Poppy" or "Polly"
+
+Off by default. Turn on **Listen for "Polly"** in Settings → Voice input (or in the **≡** menu or the menu-bar icon), then:
+
+1. Say the name, then your question: "Polly, what's the weather in Utrecht tomorrow?" You can also pause after the name.
+2. Spotify and Apple Music go down to a low volume (only if they're playing; your system volume stays as it is, so you hear the answer clearly).
+3. The chat opens without taking your keyboard, Polly listens, and your words appear in your balloon as you speak.
+4. A pause of about 1.5 seconds sends the question, just like pressing Enter. Saying nothing for 8 seconds after the name, "never mind" (or "laat maar"), Esc or typing cancels.
+5. While she answers she doesn't listen (so she never hears herself). When she's done speaking, the music goes back to its old volume and she listens for her name again.
+
+How it works: a small Swift helper (`sidecar/listen.swift`) uses Apple's **SpeechAnalyzer** (macOS 26), which runs on Apple's on-device speech models. No audio leaves your Mac, and Siri and Dictation can stay off. Poppy compiles the helper with Apple's Swift compiler the first time you turn it on (about 10 seconds; it needs the Xcode command line tools: `xcode-select --install`). macOS then asks once whether Poppy may use the microphone; the question is asked for Poppy's helper itself, however you started Poppy.
+
+- **Languages:** English or Dutch for your question (one at a time; pick it in Settings). Apple's speech model for a language downloads once, through macOS, the first time it's used.
+- **Lower the music:** on by default; turn off **Turn Spotify and Music down while I talk** to leave the music alone. The first time, macOS asks whether Poppy may control Spotify or Music.
+- **Needs** macOS 26 or newer.
+
 ## Settings
 
 Open them from the gear in the chat balloon or the menu-bar icon → Settings…. Changes are saved right away.
@@ -273,6 +292,9 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Mac voice (English) | Used for English when the engine is "Mac voice", and as the backup for Kokoro. |
 | Dutch Mac voice | Default Xander. |
 | Mac voice speed | Speed for all Mac voices. |
+| Listen for "Poppy" / "Polly" | Voice input on or off. Off by default. Also in the **≡** menu and the menu-bar icon. |
+| Language of your question | English or Dutch. |
+| Turn Spotify and Music down while I talk | On by default. |
 | Fall asleep after | Minutes of quiet before Poppy dozes off. Default 10. |
 | Learn from our chats | Memory learning on or off. |
 | Let Poppy use tools | Tools on or off. Off by default. Below it: Poppy's own tools (weather with a home city, web search through the local search engine or Ollama with a key, music with optional Spotify keys), then each MCP server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
@@ -290,6 +312,7 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
 - **Tools** (off by default) run the MCP servers you list in `mcp.json`, on your Mac. What a server does with your data is up to that server. Tools that can change things ask you first.
 - **Poppy's own tools,** when tools are on: the weather sends the place name to Open-Meteo; web search sends your search through the local search engine to search engines like Google, Bing and DuckDuckGo, and Poppy fetches the pages it reads from your Mac (never local-network addresses); with Ollama's web search picked, searches and pages go through ollama.com (with your key); playing music by name sends the search to Spotify. Music controls stay on your Mac.
+- **Voice input** (off by default) listens to your microphone while it's on and turns it into text on your Mac with Apple's on-device speech recognition; nothing is recorded or sent anywhere. Only the question after the name goes to Poppy's brain, like a typed one.
 - No analytics, no telemetry, and no accounts unless you add a key yourself (Claude, Ollama web search, Spotify).
 
 ## Troubleshooting
@@ -325,13 +348,15 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npx electron .` | Start the built app |
 | `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
 | `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
-| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic) |
+| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, waiting poses, voice input rules) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
 | `npm run searxng` | Set up (or re-create) the local search engine in Docker |
 | `npm run cut-sheet-female` | Re-cut Polly (female) from her two sheets |
 | `npm run cut-blink-female` | Re-cut Polly's blink frames from the half-closed and closed-eye copies of her sheets |
+| `npm run cut-listening-female` | Re-cut Polly's listening pose and its blink frames from its own drawing |
+| `npm run build-listener` | Check that the voice-input helper compiles (into `out/listen`; the app builds its own copy in the data folder) |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
 
 ### Project layout
@@ -348,6 +373,8 @@ src/
     tools/         Poppy's own tools: weather (Open-Meteo), web (local SearXNG or Ollama web search; page.ts reads pages), music (Spotify app + search)
     voice.ts       speech queue: Kokoro WAVs through afplay, or the Mac's say
     kokoro.ts      talks to the Kokoro helper process
+    listen.ts      voice input: builds and runs the listening helper, finds the name, follows the question
+    duck.ts        turns Spotify / Music down while you talk, and back up
     summary.ts     spoken wrap-up for long replies
     attachments.ts reads attached files (images, PDFs, text)
     memory/        Poppy's memory: database (db.ts) and the recall / learn / reflect loop (index.ts)
@@ -357,11 +384,13 @@ src/
   shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules, the tools file and tool rules, Poppy's own tools' text)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
+  listen.swift   the ears: Apple's SpeechAnalyzer on the microphone, text over JSON lines (listen-Info.plist: the microphone text)
 scripts/
   cut_sheet.py   cuts the 12 poses out of docs/design/emotions-sheet.jpg
   cut_sheet2.py  cuts the 36 extra poses and their names out of docs/design/emotions-sheet-2.jpg
   cut_sheet_female.py  cuts Polly, the female version (48 poses, names, header, menu-bar icon) out of her two sheets
   cut_blink_female.py  cuts Polly's blink frames (half-closed and closed eyes) to lie exactly on her poses
+  cut_listening_female.py  cuts Polly's own listening drawing and its blink frames
   searxng.sh           sets up the local search engine (SearXNG in Docker, 127.0.0.1 only)
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
@@ -376,6 +405,7 @@ Poppy is not redrawn in code. Every pose and every piece of the chat is cut stra
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
 - [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
 - [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): Polly's (female) 48 poses. The `-half.jpg` and `-closed.jpg` files next to them ([`emotions-sheet-female-half.jpg`](docs/design/emotions-sheet-female-half.jpg), [`-closed.jpg`](docs/design/emotions-sheet-female-closed.jpg), [`-2-half.jpg`](docs/design/emotions-sheet-female-2-half.jpg), [`-2-closed.jpg`](docs/design/emotions-sheet-female-2-closed.jpg)) are copies with her eyes half closed and closed; only the eyes are taken from them, for her blink.
+- [`docs/design/listening-female.jpg`](docs/design/listening-female.jpg): Polly's listening pose, a drawing of its own. Its blink comes from the front panels of [`listening-female-blink.jpg`](docs/design/listening-female-blink.jpg), lined up with it.
 - [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (yours and Poppy's, stretched to fit the text), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 
 The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see-through and save PNGs into `assets/`. The balloon, the bubbles, the input and the settings frame are stretched with CSS `border-image` (9-slice), so the pencil lines keep their shape at any size. Animation only moves whole images (a bob, a hop, a crossfade); it never changes the drawings. Design notes are in [`docs/design/poppy-character.md`](docs/design/poppy-character.md).
@@ -395,7 +425,6 @@ The Python scripts in `scripts/` (OpenCV) cut each piece out, make the paper see
 - **A graph view** of the people and things Poppy knows, in the memory window.
 - **Training data export:** good exchanges as a dataset, to fine-tune a small model on your Mac with Apple's MLX.
 - **More co-worker tools:** ready-made servers for Mail and Calendar, and tools with the Claude brain too.
-- **Voice input:** talk to Poppy instead of typing.
 - **A real `.app`** you can drag into Applications.
 
 ## License and credits

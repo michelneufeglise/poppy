@@ -24,6 +24,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+import cut_listening_female
+
 from cut_chat import ink_layer
 from cut_sheet import tray_icons
 from cut_sheet2 import ZOOM, cut_grid, cut_label, ink_mask
@@ -141,6 +143,8 @@ def main() -> None:
     tray_icons(STATES / "idle.png", ROOT / "assets/female/tray")
     print("saved tray icons")
     female_header()
+    # Listening has its own drawing now; the header above keeps the sheet's.
+    cut_listening_female.main()
 
 if __name__ == "__main__":
     main()

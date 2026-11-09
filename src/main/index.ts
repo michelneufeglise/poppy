@@ -39,6 +39,7 @@ import { checkLocalSearch, checkOllamaKey } from './tools/web'
 import { getSettings, onSettingsChanged, updateSettings } from './settings'
 import { spokenWrapUp } from './summary'
 import { listVoices, Voice, type Speech } from './voice'
+import { Listener, type ListenOptions } from './listen'
 
 const BUDDY_W = 380
 const BUDDY_H = 560
@@ -74,6 +75,26 @@ let tray: Tray | null = null
 const brain = new Brain(getSettings, (patch) => setSettings(patch))
 const kokoro = new Kokoro()
 const voice = new Voice(kokoro)
+/** Voice input: listens for the name, then the question (Apple's recognition on this Mac). */
+const listener = new Listener({
+  wake: () => {
+    showBuddy()
+    sendBuddy('voice:wake')
+  },
+  heard: (text) => sendBuddy('voice:heard', text),
+  ask: (text) => sendBuddy('voice:ask', text),
+  cancel: () => sendBuddy('voice:cancel'),
+  status: (st) => {
+    sendAll('listen:status', st)
+    updateTrayMenu()
+  }
+})
+const listenOptions = (s: Settings): ListenOptions => ({
+  enabled: s.listenEnabled,
+  locale: s.listenLocale,
+  character: s.character,
+  duckMusic: s.duckMusic
+})
 let lastLang: SpeechLang = 'en'
 let history: BrainMessage[] = []
 /** MCP servers from the tools file (mcp.json in the data folder). Created when the app is ready. */
@@ -291,6 +312,16 @@ function brainMenu(s: Settings): Electron.MenuItemConstructorOptions[] {
   ]
 }
 
+/** "Listen for Polly": voice input on or off, from the menu-bar icon and the ≡ menu. */
+function listenMenuItem(s: Settings): Electron.MenuItemConstructorOptions {
+  return {
+    label: `Listen for "${me()}"`,
+    type: 'checkbox',
+    checked: s.listenEnabled,
+    click: (item) => setSettings({ listenEnabled: item.checked })
+  }
+}
+
 function updateTrayMenu(): void {
   if (!tray) return
   const s = getSettings()
@@ -313,6 +344,7 @@ function updateTrayMenu(): void {
         checked: s.voiceEnabled,
         click: (item) => setSettings({ voiceEnabled: item.checked })
       },
+      listenMenuItem(s),
       ...brainMenu(s),
       characterMenu(s),
       { label: 'Settings…', click: openSettings },
@@ -618,7 +650,9 @@ function registerIpc(): void {
 
   ipcMain.on('chat:send', (_e, text: string, ids: unknown) => {
     const attachmentIds = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []
-    void runChat(String(text).slice(0, 4000), attachmentIds)
+    // No listening while she answers and speaks, so she never hears herself.
+    listener.hold()
+    void runChat(String(text).slice(0, 4000), attachmentIds).finally(() => listener.release())
   })
   ipcMain.handle('attach:pick', async (_e, already: number) => {
     app.focus({ steal: true })
@@ -649,6 +683,7 @@ function registerIpc(): void {
       { label: 'Attach file…', click: () => sendBuddy('ui:attach') },
       { type: 'separator' },
       { label: 'Voice', type: 'checkbox', checked: s.voiceEnabled, click: (item) => setSettings({ voiceEnabled: item.checked }) },
+      listenMenuItem(s),
       { type: 'separator' },
       ...brainMenu(s),
       characterMenu(s),
@@ -780,6 +815,9 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle('voice:list', () => listVoices())
+  ipcMain.handle('listen:status', () => listener.status)
+  ipcMain.handle('listen:check', () => listener.check())
+  ipcMain.on('listen:cancel', () => listener.cancel())
   ipcMain.handle('voice:kokoro-status', () => kokoro.status)
   ipcMain.on('voice:test', (_e, lang: SpeechLang) => {
     const s = getSettings()
@@ -809,6 +847,7 @@ if (!app.requestSingleInstanceLock()) {
     toolBox = new ToolBox(join(app.getPath('userData'), 'mcp.json'), () => builtinServers(getSettings()))
     toolBox.onStatus((st) => sendAll('tools:status', st))
     void toolBox.setEnabled(getSettings().toolsEnabled)
+    listener.configure(listenOptions(getSettings()))
     brain.onStatus(() => sendAll('claude:status', { ...brain.status(), masked: maskedApiKey() }))
     onSettingsChanged((s) => {
       sendAll('settings:changed', s)
@@ -816,6 +855,7 @@ if (!app.requestSingleInstanceLock()) {
       tray?.setImage(trayIcon(s))
       void toolBox?.setEnabled(s.toolsEnabled)
       toolBox?.refresh()
+      listener.configure(listenOptions(s))
     })
     createBuddy()
     createTray()
@@ -825,6 +865,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {})
   app.on('before-quit', () => {
     voice.stop()
+    listener.shutdown()
     kokoro.shutdown()
     memory?.close()
     memory = null

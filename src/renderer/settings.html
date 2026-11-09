@@ -83,6 +83,17 @@
         <hr />
 
         <section>
+          <h2>Voice input</h2>
+          <label class="check"><input id="listen-on" type="checkbox" /> Listen for "<span data-buddy="{name}">Poppy</span>"</label>
+          <p class="hint">Say "<span data-buddy="{name}">Poppy</span>" and then your question; a short pause sends it. Esc, typing or "never mind" cancels. Apple's speech recognition turns it into text on this Mac only (no Siri or Dictation needed): nothing is sent anywhere. Needs macOS 26.</p>
+          <label for="listen-locale">Language of your question</label>
+          <span class="field select"><select id="listen-locale"></select></span>
+          <label class="check"><input id="duck-on" type="checkbox" /> Turn Spotify and Music down while I talk</label>
+          <p id="listen-status" class="hint"></p>
+        </section>
+        <hr />
+
+        <section>
           <h2>English</h2>
           <label for="engine">Voice engine</label>
           <span class="field select">

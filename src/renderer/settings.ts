@@ -1,5 +1,15 @@
 import { followCharacter, me } from './character'
-import { KOKORO_VOICES, type BrainStatus, type KokoroStatus, type MemoryStats, type Settings, type ToolKeys, type ToolsStatus } from '../shared/types'
+import {
+  KOKORO_VOICES,
+  LISTEN_LOCALES,
+  type BrainStatus,
+  type KokoroStatus,
+  type ListenStatus,
+  type MemoryStats,
+  type Settings,
+  type ToolKeys,
+  type ToolsStatus
+} from '../shared/types'
 
 const api = window.poppy
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
@@ -20,6 +30,13 @@ const kokoroSpeed = $<HTMLInputElement>('kokoro-speed')
 const kokoroSpeedOut = $<HTMLSpanElement>('kokoro-speed-out')
 const kokoroStatus = $<HTMLParagraphElement>('kokoro-status')
 const dutchVoice = $<HTMLSelectElement>('dutch-voice')
+const listenOn = $<HTMLInputElement>('listen-on')
+const listenLocale = $<HTMLSelectElement>('listen-locale')
+const duckOn = $<HTMLInputElement>('duck-on')
+const listenStatusEl = $<HTMLParagraphElement>('listen-status')
+let listenStatus: ListenStatus = { state: 'off', message: '' }
+/** What the last check said about permissions and the language (only checked while it's on). */
+let listenCheck = ''
 const memoryOn = $<HTMLInputElement>('memory-on')
 const embedModel = $<HTMLSelectElement>('embed')
 const memoryStatus = $<HTMLParagraphElement>('memory-status')
@@ -130,6 +147,10 @@ function render(): void {
   kokoroSpeedOut.textContent = `(${settings.kokoroSpeed.toFixed(2)}×)`
   if (document.activeElement !== dutchVoice && dutchVoice.options.length) dutchVoice.value = settings.dutchVoice
   sleep.value = String(settings.sleepAfterMinutes)
+  listenOn.checked = settings.listenEnabled
+  listenLocale.value = settings.listenLocale
+  duckOn.checked = settings.duckMusic
+  showListen()
   memoryOn.checked = settings.memoryEnabled
   if (document.activeElement !== embedModel && embedModel.options.length) embedModel.value = settings.embedModel
   character.value = settings.character
@@ -145,6 +166,34 @@ function render(): void {
   musicOn.checked = settings.musicTool
   if (document.activeElement !== homeCity) homeCity.value = settings.homeCity
   showTools(lastTools)
+}
+
+/** Voice input: listening, or why not. */
+function showListen(): void {
+  const st = listenStatus
+  const text: Record<ListenStatus['state'], string> = {
+    off: settings?.listenEnabled ? '' : 'Off.',
+    building: st.message,
+    starting: st.message || 'Starting…',
+    waiting: `Listening for "${me().name}".`,
+    hearing: 'Listening to your question…',
+    paused: `Not listening while ${me().name} answers.`,
+    error: st.message
+  }
+  const parts = [text[st.state], st.state === 'error' || st.state === 'off' ? '' : listenCheck].filter(Boolean)
+  listenStatusEl.textContent = parts.join(' ')
+  listenStatusEl.className = st.state === 'error' ? 'hint error' : st.state === 'waiting' ? 'hint ok' : 'hint'
+}
+
+async function checkListen(): Promise<void> {
+  if (!settings.listenEnabled) {
+    listenCheck = ''
+    return showListen()
+  }
+  const said = await api.checkListen()
+  // Only the parts that add something to the status line.
+  listenCheck = /works on this Mac/.test(said) ? '' : said
+  showListen()
 }
 
 /** Each server from the tools file: running or not, its tools, and "don't ask first". */
@@ -355,6 +404,20 @@ kokoroVoice.addEventListener('change', () => save({ kokoroVoice: kokoroVoice.val
 kokoroSpeed.addEventListener('input', () => (kokoroSpeedOut.textContent = `(${Number(kokoroSpeed.value).toFixed(2)}×)`))
 kokoroSpeed.addEventListener('change', () => save({ kokoroSpeed: Number(kokoroSpeed.value) }))
 dutchVoice.addEventListener('change', () => save({ dutchVoice: dutchVoice.value }))
+listenLocale.replaceChildren(...LISTEN_LOCALES.map((l) => option(l.id, l.label)))
+listenOn.addEventListener('change', async () => {
+  await save({ listenEnabled: listenOn.checked })
+  void checkListen()
+})
+listenLocale.addEventListener('change', async () => {
+  await save({ listenLocale: listenLocale.value as Settings['listenLocale'] })
+  void checkListen()
+})
+duckOn.addEventListener('change', () => save({ duckMusic: duckOn.checked }))
+api.onListenStatus((st) => {
+  listenStatus = st
+  showListen()
+})
 memoryOn.addEventListener('change', () => save({ memoryEnabled: memoryOn.checked }))
 embedModel.addEventListener('change', () => save({ embedModel: embedModel.value }))
 $('open-memory').addEventListener('click', () => api.openMemory())
@@ -416,6 +479,8 @@ api.getSettings().then(async (s) => {
   render()
   showClaude(await api.claudeStatus())
   void checkLocalSearch()
+  listenStatus = await api.listenStatus()
+  void checkListen()
   await Promise.all([loadModels(), loadVoices(), loadEmbedModels(), loadClaudeModels()])
 })
 
@@ -430,4 +495,5 @@ $('minimize').addEventListener('click', () => api.closeSettings())
 followCharacter(() => {
   void api.memoryStats().then(showMemoryStats)
   showClaude(claude)
+  if (settings) showListen()
 })

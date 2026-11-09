@@ -45,6 +45,8 @@ SKIP = {
     "sad",  # the copies added tears
     # sheet 2
     "crying",  # the closed copy moved her hands away from her eyes
+    # her own drawing now: cut_listening_female.py makes its blink frames (run after this script)
+    "listening",
 }
 NO_HALF = {"cheerful"}  # the half copy also changed her mouth
 
@@ -105,9 +107,12 @@ def main() -> None:
         scratch = Path(tmp)
         z = zoom2(sheet1, sheet2, scratch)
         print(f"zoom sheet 2: {z:.2f}")
+        kept = {p.name: p.read_bytes() for p in OUT.glob("listening-*.png")}  # from cut_listening_female.py
         if OUT.exists():
             shutil.rmtree(OUT)
         OUT.mkdir(parents=True)
+        for name, data in kept.items():
+            (OUT / name).write_bytes(data)
         cut_frames(sheet1, "emotions-sheet-female", NAMES1, ROWS1, ZOOM, scratch, label_above={(1, 3): SLEEPING_LABEL_TOP})
         cut_frames(sheet2, "emotions-sheet-female-2", NAMES2, ROWS2, z, scratch, cell_top={(1, 0): CRYING_TOP})
     print(f"{len(list(OUT.glob('*-closed.png')))} poses blink")

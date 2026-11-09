@@ -5,6 +5,7 @@ import type {
   ChatError,
   ChatUpdate,
   KokoroStatus,
+  ListenStatus,
   MemorySnapshot,
   MemoryStats,
   PastMessage,
@@ -69,6 +70,17 @@ const api = {
   onToolUse: (cb: (u: ToolUse) => void) => on('chat:tool-use', cb),
   /** Wave goodbye: main hides the window right after. */
   onBye: (cb: () => void) => on('ui:bye', cb),
+
+  // voice input: the name was heard, the question so far, the finished question, or nothing asked
+  onVoiceWake: (cb: () => void) => on('voice:wake', cb),
+  onVoiceHeard: (cb: (text: string) => void) => on('voice:heard', cb),
+  onVoiceAsk: (cb: (text: string) => void) => on('voice:ask', cb),
+  onVoiceCancel: (cb: () => void) => on('voice:cancel', cb),
+  cancelVoice: () => ipcRenderer.send('listen:cancel'),
+  listenStatus: () => ipcRenderer.invoke('listen:status') as Promise<ListenStatus>,
+  /** Permissions and on-device support for the chosen language (asks for nothing). */
+  checkListen: () => ipcRenderer.invoke('listen:check') as Promise<string>,
+  onListenStatus: (cb: (s: ListenStatus) => void) => on('listen:status', cb),
 
   // memory
   openMemory: () => ipcRenderer.send('memory:open'),

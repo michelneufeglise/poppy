@@ -235,6 +235,23 @@ img {
 .composer.sent textarea {
   caret-color: transparent;
 }
+/* Voice input: the words appear as they're said; the balloon breathes a little while she listens. */
+.composer.hearing {
+  animation: hearing 1.6s ease-in-out infinite;
+}
+.composer.hearing textarea {
+  caret-color: transparent;
+}
+@keyframes hearing {
+  50% {
+    transform: scale(1.015);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer.hearing {
+    animation: none;
+  }
+}
 .composer .row {
   display: flex;
   justify-content: space-between;

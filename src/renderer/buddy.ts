@@ -2,6 +2,7 @@ import { MAX_FILES } from '../shared/attachments'
 import { buddyOf } from '../shared/buddy'
 import { Blinker, type BlinkFrames } from './blink'
 import { Motion } from './motion'
+import { FIRST_CHANGE_MS, isWaitingPose, nextWaitingDelay, nextWaitingPose } from './waiting'
 import { STATES, type AttachmentInfo, type AttachResult, type Character, type Mood, type PoppyState } from '../shared/types'
 
 const api = window.poppy
@@ -99,7 +100,7 @@ function useCharacter(next: Character): void {
   if (next === character && !first) return
   character = next
   const name = buddyOf(next).name
-  $<HTMLTextAreaElement>('input').placeholder = `Ask ${name} anything…`
+  if (!hearing) $<HTMLTextAreaElement>('input').placeholder = `Ask ${name} anything…`
   $('panel').setAttribute('aria-label', `Chat with ${name}`)
   for (const attr of ['aria-label', 'title']) $('hide').setAttribute(attr, `Hide ${name}`)
   for (const s of STATES) load(s)
@@ -112,11 +113,14 @@ useCharacter('male')
 
 let state: PoppyState = 'idle'
 let holdTimer = 0
+/** A mood shown for a while (holdMs): the waiting poses leave it alone until then. */
+let holdUntil = 0
 let lastActivity = Date.now()
 let sleepAfterMs = 10 * 60_000
 
 function setState(next: PoppyState, holdMs = 0, then: PoppyState = 'idle'): void {
   window.clearTimeout(holdTimer)
+  holdUntil = holdMs ? Date.now() + holdMs : 0
   if (next !== state) {
     imgs[state].classList.remove('on')
     imgs[next].classList.add('on')
@@ -133,6 +137,22 @@ function setState(next: PoppyState, holdMs = 0, then: PoppyState = 'idle'): void
 
 function touch(): void {
   lastActivity = Date.now()
+}
+
+// While the chat is open and waiting for the user, she switches between calm waiting poses (waiting.ts).
+let waitTimer = 0
+let waitSince = 0
+/** Starts the wait over: listening first, the next pose after a few seconds. */
+function restartWaiting(): void {
+  window.clearTimeout(waitTimer)
+  waitSince = Date.now()
+  waitTimer = window.setTimeout(waitStep, FIRST_CHANGE_MS)
+}
+function waitStep(): void {
+  if (panel.hidden) return
+  const quiet = !replying && !hearing && Date.now() >= holdUntil && isWaitingPose(state) && !input.value
+  if (quiet) setState(nextWaitingPose(state, Date.now() - waitSince))
+  waitTimer = window.setTimeout(waitStep, nextWaitingDelay())
 }
 
 let bubbleTimer = 0
@@ -271,6 +291,8 @@ head.addEventListener('pointerup', () => {
 // When the user starts the next question, the last pair moves up into the faded earlier balloons.
 
 let replying = false
+/** Voice input: the name was heard and the user is saying the question (main follows the words). */
+let hearing = false
 let latestId = -1
 let replyMood: Mood | null = null
 let rateable = true
@@ -371,6 +393,7 @@ function addRating(replyId: number): void {
 function finishReply(): void {
   replying = false
   input.readOnly = false
+  restartWaiting()
   if (!current || current.moved) return
   addOld('you', current.question, current.files)
   current.moved = true
@@ -399,7 +422,8 @@ function afterGrow(then: () => void): void {
 }
 const CLOSED_HEIGHT = 560
 
-function openPanel(): void {
+/** `focus`: take the keyboard (not when opened by voice: the user may be typing in another app). */
+function openPanel(focus = true): void {
   touch()
   bubble.hidden = true
   if (!panel.hidden) return
@@ -409,17 +433,21 @@ function openPanel(): void {
     document.body.classList.add('chat-open')
     showHint()
     fitInput()
-    api.focus()
-    input.focus()
+    if (focus) {
+      api.focus()
+      input.focus()
+    }
   })
   if (!replying) setState('listening')
+  restartWaiting()
 }
 
 function closePanel(): void {
+  window.clearTimeout(waitTimer)
   panel.hidden = true
   document.body.classList.remove('chat-open', 'whole')
   api.setChatOpen(false)
-  if (!replying && state === 'listening') setState('bye', 1800)
+  if (!replying && isWaitingPose(state)) setState('bye', 1800)
 }
 
 function togglePanel(): void {
@@ -461,9 +489,19 @@ input.addEventListener('keydown', (e) => {
     form.requestSubmit()
   }
 })
-input.addEventListener('input', fitInput)
+input.addEventListener('input', () => {
+  fitInput()
+  if (hearing) {
+    // Typing instead of talking: the voice question is off, what's typed stays.
+    endHearing()
+    api.cancelVoice()
+  }
+  // Typing: she listens again, and the waiting starts over.
+  if (!replying && Date.now() >= holdUntil && isWaitingPose(state)) setState('listening')
+  restartWaiting()
+})
 input.addEventListener('focus', () => {
-  if (!replying) setState('listening')
+  if (!replying && Date.now() >= holdUntil) setState('listening')
 })
 input.addEventListener('blur', () => {
   if (!replying && state === 'listening') setState('idle')
@@ -471,6 +509,10 @@ input.addEventListener('blur', () => {
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (hearing) {
+      api.cancelVoice() // main answers with voice:cancel
+      return
+    }
     if (replying) {
       api.stopChat()
       finishReply()
@@ -763,6 +805,54 @@ api.onToolAsked((askId) => {
   box.querySelector('.rate')?.replaceChildren(
     Object.assign(document.createElement('span'), { className: 'thanks', textContent: "no answer, so I didn't" })
   )
+})
+
+// ---------- voice input ----------
+// Main hears the name (listen.ts), then sends the words so far and the finished question. They go in the
+// user's balloon as if typed, and the finished question is sent the same way as a typed one.
+
+let draft = ''
+function endHearing(): void {
+  hearing = false
+  composer.classList.remove('hearing')
+  input.placeholder = `Ask ${buddyOf(character).name} anything…`
+}
+
+api.onVoiceWake(() => {
+  touch()
+  bubble.hidden = true
+  if (replying) return
+  if (panel.hidden) openPanel(false)
+  if (!hearing) draft = input.value
+  hearing = true
+  composer.classList.add('hearing')
+  input.value = ''
+  input.placeholder = 'listening…'
+  fitInput()
+  if (!current && !log.childElementCount) setSay("I'm listening…", 'hint')
+  setState('listening')
+  restartWaiting()
+})
+api.onVoiceHeard((text) => {
+  if (!hearing) return
+  touch()
+  input.value = text
+  fitInput()
+})
+api.onVoiceAsk((text) => {
+  if (!hearing) return
+  endHearing()
+  input.value = text
+  fitInput()
+  form.requestSubmit()
+})
+api.onVoiceCancel(() => {
+  if (!hearing) return
+  endHearing()
+  input.value = draft
+  fitInput()
+  showHint()
+  setState('listening')
 })
 
 api.onOpenChat(() => openPanel())

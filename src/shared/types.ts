@@ -115,6 +115,25 @@ export interface Settings {
   musicTool: boolean
   /** The place get_weather uses when the user doesn't name one. */
   homeCity: string
+  /** Voice input: listen for "Poppy"/"Polly" and take the question after it (Apple's recognition, on this Mac only). */
+  listenEnabled: boolean
+  /** The language of the spoken question (Apple's recognizer does one language at a time). */
+  listenLocale: ListenLocale
+  /** Turn Spotify / Music down while the user talks, back up when the answer is spoken. */
+  duckMusic: boolean
+}
+
+export const LISTEN_LOCALES = [
+  { id: 'en-US', label: 'English' },
+  { id: 'nl-NL', label: 'Dutch' }
+] as const
+export type ListenLocale = (typeof LISTEN_LOCALES)[number]['id']
+
+/** Voice input, for the settings window and the menus. */
+export interface ListenStatus {
+  state: 'off' | 'building' | 'starting' | 'waiting' | 'hearing' | 'paused' | 'error'
+  /** What to tell the user (why it's off, or that it's listening). */
+  message: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -144,7 +163,10 @@ export const DEFAULT_SETTINGS: Settings = {
   webSearch: 'local',
   searxngUrl: 'http://127.0.0.1:8890',
   musicTool: true,
-  homeCity: ''
+  homeCity: '',
+  listenEnabled: false,
+  listenLocale: 'en-US',
+  duckMusic: true
 }
 
 export interface ChatUpdate {
