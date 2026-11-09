@@ -9,6 +9,7 @@ import {
   checkQuestion,
   RESET_TRANSCRIPT_MS,
   tidyQuestion,
+  wakeHints,
   wakeWords
 } from '../shared/listen'
 import type { Character, ListenLocale, ListenStatus } from '../shared/types'
@@ -43,14 +44,21 @@ export interface ListenEvents {
 }
 
 const TICK_MS = 200
+/** POPPY_LISTEN_DEBUG=1: every message to and from the helper in the terminal. */
+const DEBUG = !!process.env.POPPY_LISTEN_DEBUG
+const debug = (...a: unknown[]): void => {
+  if (DEBUG) console.log('[listen]', new Date().toISOString().slice(11, 23), ...a)
+}
 /** After handing over a question: if no reply starts in this time, listen again anyway. */
 const REPLY_START_MS = 10_000
+/** The helper answers every reset/pause/listen; if it doesn't within this time, it's restarted. */
+const ACK_MS = 10_000
 const SOURCES = ['sidecar/listen.swift', 'sidecar/listen-Info.plist']
 
 type Msg =
   | { type: 'listening' | 'paused' | 'reset' | 'downloading' }
   /** Everything heard since the last reset. */
-  | { type: 'text'; text: string }
+  | { type: 'text'; text: string; settled?: boolean }
   | { type: 'error'; code?: string; message: string }
   | { type: 'note'; message: string }
   | { type: 'check'; mic: string; available: boolean; supported: boolean; installed: boolean }
@@ -63,7 +71,7 @@ export class Listener {
   private holds = 0
   private ducker = new Ducker()
   /** After the name: the question so far. */
-  private q: { text: string; wokeAt: number; changedAt: number } | null = null
+  private q: { text: string; wokeAt: number; changedAt: number; settled: boolean } | null = null
   private resetAt = 0
   private tick: NodeJS.Timeout | null = null
   private waitReply: NodeJS.Timeout | null = null
@@ -73,6 +81,9 @@ export class Listener {
    * to the old transcript, with the name in it: it's skipped until the helper says it started over.
    */
   private skipUntil: 'reset' | 'paused' | 'listening' | null = null
+  private ackTimer: NodeJS.Timeout | null = null
+  /** The helper has started listening once: before that, it may be waiting on the microphone prompt. */
+  private started = false
 
   constructor(private readonly on: ListenEvents) {}
 
@@ -155,7 +166,7 @@ export class Listener {
     if (this.holds > 0) return this.setStatus('paused', '')
     this.setStatus('starting', '')
     this.resetAt = Date.now()
-    this.send({ cmd: 'listen', locale: this.opts.locale })
+    this.send({ cmd: 'listen', locale: this.opts.locale, hints: wakeHints(this.opts.character) })
   }
 
   private resume(): void {
@@ -166,6 +177,9 @@ export class Listener {
 
   private stop(): void {
     this.endQuestion()
+    if (this.ackTimer) clearTimeout(this.ackTimer)
+    this.ackTimer = null
+    this.skipUntil = null
     void this.ducker.restore()
     this.starting = null
     if (this.proc) {
@@ -224,7 +238,10 @@ export class Listener {
     const dir = join(app.getPath('userData'), 'listen')
     const name = `listen-${hash.digest('hex').slice(0, 10)}`
     const bin = join(dir, name)
-    if (existsSync(bin)) return bin
+    if (existsSync(bin)) {
+      this.cleanUp(dir, name)
+      return bin
+    }
     this.setStatus('building', 'Getting the ears ready (compiling, about 10 seconds)…')
     mkdirSync(dir, { recursive: true })
     const tmp = `${bin}.tmp`
@@ -240,14 +257,43 @@ export class Listener {
       )
     })
     renameSync(tmp, bin)
-    for (const f of readdirSync(dir)) if (f !== name) rmSync(join(dir, f), { force: true })
+    this.cleanUp(dir, name)
     return bin
+  }
+
+  /** Older builds of the helper (each version of the source gets its own). */
+  private cleanUp(dir: string, keep: string): void {
+    for (const f of readdirSync(dir)) if (f !== keep) rmSync(join(dir, f), { force: true })
+  }
+
+  /**
+   * A helper that stops answering (it once hung starting over after a pause) is restarted, so voice
+   * input never stays deaf until Poppy restarts.
+   */
+  private watchAck(): void {
+    if (this.ackTimer) clearTimeout(this.ackTimer)
+    const proc = this.proc
+    this.ackTimer = setTimeout(() => {
+      this.ackTimer = null
+      if (!this.skipUntil || this.proc !== proc || !proc) return
+      console.warn(`[listen] no "${this.skipUntil}" from the helper in ${ACK_MS / 1000} s: restarting it`)
+      this.skipUntil = null
+      this.proc = null
+      this.endQuestion()
+      proc.kill()
+      if (this.opts.enabled) void this.begin()
+    }, ACK_MS)
   }
 
   private send(msg: Record<string, unknown>): void {
     if (!this.proc?.stdin?.writable) return
     const after = ({ reset: 'reset', pause: 'paused', listen: 'listening' } as const)[msg.cmd as string]
-    if (after) this.skipUntil = after
+    if (after) {
+      this.skipUntil = after
+      // Not on the first start: macOS's microphone question (or a model download) takes as long as it takes.
+      if (this.started) this.watchAck()
+    }
+    debug('→', JSON.stringify(msg))
     this.proc.stdin.write(JSON.stringify(msg) + '\n')
   }
 
@@ -260,19 +306,30 @@ export class Listener {
   // ---------- what the helper hears ----------
 
   private handle(m: Msg): void {
+    debug('←', JSON.stringify(m), `holds=${this.holds} skip=${this.skipUntil} q=${this.q ? JSON.stringify(this.q.text) : '-'}`)
     if (m.type === 'check') return this.checks.shift()?.(m)
-    if (m.type === this.skipUntil) this.skipUntil = null
+    if (m.type === this.skipUntil) {
+      this.skipUntil = null
+      if (this.ackTimer) clearTimeout(this.ackTimer)
+      this.ackTimer = null
+    }
     if (m.type === 'reset') return
     if (m.type === 'note') return console.warn('[listen]', m.message)
+    if (m.type === 'downloading') {
+      // A language model download takes as long as it takes: no restart for that.
+      if (this.ackTimer) clearTimeout(this.ackTimer)
+      this.ackTimer = null
+    }
     if (m.type === 'downloading') return this.setStatus('starting', `Downloading Apple's ${this.lang()} speech model (once)…`)
     if (m.type === 'error') {
       this.skipUntil = null
       return this.setStatus('error', m.message)
     }
+    if (m.type === 'listening') this.started = true
     if (m.type === 'listening') return this.setStatus(this.q ? 'hearing' : 'waiting', '')
     if (m.type === 'paused') return this.setStatus(this.opts.enabled ? 'paused' : 'off', '')
     if (m.type !== 'text' || this.holds > 0 || this.skipUntil) return
-    if (this.q) return this.follow(m.text)
+    if (this.q) return this.follow(m.text, m.settled !== false)
     const after = afterWake(m.text, wakeWords(this.opts.character))
     if (after === null) {
       // No name: keep the running transcript short.
@@ -283,7 +340,7 @@ export class Listener {
       return
     }
     const now = Date.now()
-    this.q = { text: after, wokeAt: now, changedAt: now }
+    this.q = { text: after, wokeAt: now, changedAt: now, settled: m.settled !== false }
     this.setStatus('hearing', '')
     if (this.opts.duckMusic) void this.ducker.duck()
     this.on.wake()
@@ -292,8 +349,9 @@ export class Listener {
   }
 
   /** The words after the name, as they come in. */
-  private follow(text: string): void {
+  private follow(text: string, settled: boolean): void {
     const q = this.q!
+    q.settled = settled
     const own = afterWake(text, wakeWords(this.opts.character))
     if (own === null || own === q.text) return // (null: the recognizer rewrote the name for a moment)
     q.text = own
@@ -304,7 +362,7 @@ export class Listener {
   private checkEnd(): void {
     const q = this.q
     if (!q) return
-    const verdict = checkQuestion({ question: q.text, wokeAt: q.wokeAt, changedAt: q.changedAt, now: Date.now() })
+    const verdict = checkQuestion({ ...q, question: q.text, now: Date.now() })
     if (verdict === 'wait') return
     if (verdict === 'cancel') return this.cancel()
     const question = tidyQuestion(q.text)

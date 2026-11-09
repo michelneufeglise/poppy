@@ -652,7 +652,12 @@ function registerIpc(): void {
     const attachmentIds = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []
     // No listening while she answers and speaks, so she never hears herself.
     listener.hold()
-    void runChat(String(text).slice(0, 4000), attachmentIds).finally(() => listener.release())
+    // The reply is done before she has finished saying it: wait for her voice too, plus a moment for
+    // the room to go quiet (heard in a live test: she picked up the end of her own reply).
+    void runChat(String(text).slice(0, 4000), attachmentIds)
+      .then(() => voice.whenIdle())
+      .then(() => new Promise((r) => setTimeout(r, 400)))
+      .finally(() => listener.release())
   })
   ipcMain.handle('attach:pick', async (_e, already: number) => {
     app.focus({ steal: true })

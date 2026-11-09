@@ -260,10 +260,10 @@ More Mac voices can be added in **System Settings → Accessibility → Spoken C
 
 Off by default. Turn on **Listen for "Polly"** in Settings → Voice input (or in the **≡** menu or the menu-bar icon), then:
 
-1. Say the name, then your question: "Polly, what's the weather in Utrecht tomorrow?" You can also pause after the name.
+1. Say the name, then your question: "Polly, what's the weather in Utrecht tomorrow?" You can also pause after the name. Speech recognition often writes "Polly" as a sound-alike (Buddy, Body, Bully, Bunny), so those count too, but only when you call her with them at the start of a sentence ("Buddy, what time is it?"), not in "my body hurts".
 2. Spotify and Apple Music go down to a low volume (only if they're playing; your system volume stays as it is, so you hear the answer clearly).
 3. The chat opens without taking your keyboard, Polly listens, and your words appear in your balloon as you speak.
-4. A pause of about 1.5 seconds sends the question, just like pressing Enter. Saying nothing for 8 seconds after the name, "never mind" (or "laat maar"), Esc or typing cancels.
+4. A pause of about 1.5 seconds sends the question, just like pressing Enter (up to 4 seconds when the recognizer is still working on your last words). Saying nothing for 8 seconds after the name, "never mind" (or "laat maar"), Esc or typing cancels.
 5. While she answers she doesn't listen (so she never hears herself). When she's done speaking, the music goes back to its old volume and she listens for her name again.
 
 How it works: a small Swift helper (`sidecar/listen.swift`) uses Apple's **SpeechAnalyzer** (macOS 26), which runs on Apple's on-device speech models. No audio leaves your Mac, and Siri and Dictation can stay off. Poppy compiles the helper with Apple's Swift compiler the first time you turn it on (about 10 seconds; it needs the Xcode command line tools: `xcode-select --install`). macOS then asks once whether Poppy may use the microphone; the question is asked for Poppy's helper itself, however you started Poppy.

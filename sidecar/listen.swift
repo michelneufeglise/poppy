@@ -4,7 +4,9 @@
 // looks for "Poppy"/"Polly" in that text and takes the question after it (src/main/listen.ts).
 //
 // JSON lines on stdin:  {"cmd":"check","locale":"en-US"}   microphone access + language support, never asks
-//                       {"cmd":"listen","locale":"en-US"}  asks for the microphone the first time, then listens
+//                       {"cmd":"listen","locale":"en-US","hints":["Polly"]}
+//                                                          asks for the microphone the first time, then listens;
+//                                                          hints: words to expect (the name)
 //                       {"cmd":"reset"}                    start a fresh transcript (keeps listening)
 //                       {"cmd":"pause"}                    stop the microphone
 // JSON lines on stdout: {"type":"check",…} {"type":"downloading"} {"type":"listening"} {"type":"paused"}
@@ -18,6 +20,12 @@ import AVFoundation
 import CoreMedia
 import Foundation
 import Speech
+
+/// With POPPY_LISTEN_DEBUG set (Poppy passes its environment on), each step of starting is reported.
+let debugging = ProcessInfo.processInfo.environment["POPPY_LISTEN_DEBUG"] != nil
+func step(_ what: String) {
+  if debugging { emit(["type": "note", "message": what]) }
+}
 
 func emit(_ obj: [String: Any]) {
   guard let data = try? JSONSerialization.data(withJSONObject: obj), let line = String(data: data, encoding: .utf8) else { return }
@@ -89,6 +97,7 @@ final class Ears {
   let fed = Fed()
   /// Results that end before this (seconds on the analyzer's timeline) belong to an earlier transcript.
   var cutoff = 0.0
+  var hints: [String] = []
   var finals = ""
   var volatile = ""
 
@@ -103,7 +112,8 @@ final class Ears {
     ])
   }
 
-  func listen(_ id: String) async {
+  func listen(_ id: String, hints: [String]) async {
+    step("listen: asking for the microphone")
     if file == nil {
       guard await AVCaptureDevice.requestAccess(for: .audio) else {
         return emit(["type": "error", "code": "mic-denied", "message": "The microphone isn't allowed. Turn on Poppy under System Settings → Privacy & Security → Microphone."])
@@ -111,7 +121,16 @@ final class Ears {
     }
     do {
       if id != locale || analyzer == nil { try await setUp(id) }
+      if hints != self.hints, let analyzer {
+        // Without this, "Polly" from a laptop microphone often comes out as "Holly".
+        let ctx = AnalysisContext()
+        ctx.contextualStrings[.general] = hints
+        try await analyzer.setContext(ctx)
+        self.hints = hints
+      }
+      step("listen: starting over")
       await startOver()
+      step("listen: starting audio")
       try startAudio()
       emit(["type": "listening"])
     } catch let f as Fail {
@@ -130,8 +149,9 @@ final class Ears {
       throw Fail(code: "no-locale", message: "This Mac has no speech recognition for \(id).")
     }
     let transcriber = SpeechTranscriber(locale: loc, transcriptionOptions: [], reportingOptions: [.volatileResults], attributeOptions: [.audioTimeRange])
+    let installed = await SpeechTranscriber.installedLocales.contains { $0.identifier(.bcp47) == loc.identifier(.bcp47) }
     if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-      emit(["type": "downloading"]) // Apple's speech model for this language, once
+      if !installed { emit(["type": "downloading"]) } // Apple's speech model for this language, once
       try await request.downloadAndInstall()
     }
     guard let fmt = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
@@ -162,6 +182,7 @@ final class Ears {
     input = nil
     reader = nil
     locale = ""
+    hints = []
   }
 
   private func got(_ r: SpeechTranscriber.Result) {
@@ -173,14 +194,24 @@ final class Ears {
     } else {
       volatile = text
     }
-    if feeding { emit(["type": "text", "text": [finals, volatile].filter { !$0.isEmpty }.joined(separator: " ")]) }
+    // settled: nothing is still being guessed at (the recognizer finished what it heard so far).
+    if feeding {
+      emit(["type": "text", "text": [finals, volatile].filter { !$0.isEmpty }.joined(separator: " "), "settled": volatile.isEmpty])
+    }
   }
 
   /// A fresh transcript: what was being said is finalized and dropped.
   func startOver() async {
     let now = fed.seconds
     if let analyzer, now > 0 {
-      try? await analyzer.finalize(through: CMTime(seconds: now, preferredTimescale: 48_000))
+      // Everything it has so far (nil), never a time it may not have reached: with the microphone
+      // paused that waited forever. And never longer than 2 seconds.
+      await withTaskGroup(of: Void.self) { group in
+        group.addTask { try? await analyzer.finalize(through: nil) }
+        group.addTask { try? await Task.sleep(for: .seconds(2)) }
+        await group.next()
+        group.cancelAll()
+      }
     }
     cutoff = now
     finals = ""
@@ -300,7 +331,7 @@ Task { @MainActor in
     let locale = msg["locale"] as? String ?? "en-US"
     switch msg["cmd"] as? String {
     case "check": await ears.check(locale)
-    case "listen": await ears.listen(locale)
+    case "listen": await ears.listen(locale, hints: msg["hints"] as? [String] ?? [])
     case "reset":
       await ears.startOver()
       emit(["type": "reset"]) // what comes after this is from the fresh transcript
