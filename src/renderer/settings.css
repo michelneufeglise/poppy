@@ -110,6 +110,35 @@ h2 {
   font-weight: normal;
   margin: 0 0 2px;
 }
+/* Voice learning: one learned word per line, × from the picture to forget it. */
+.learned {
+  list-style: none;
+  margin: 2px 0 4px;
+  padding: 0;
+  font-size: 17px;
+}
+.learned li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.learned .del {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 0;
+  opacity: 0.45;
+}
+.learned .del img {
+  width: 100%;
+}
+.learned li:hover .del,
+.learned .del:focus-visible {
+  opacity: 1;
+}
 h3 {
   font-size: 21px;
   font-weight: normal;

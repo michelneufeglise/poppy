@@ -5,13 +5,16 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } 
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import {
-  afterWake,
   checkQuestion,
+  findWake,
   RESET_TRANSCRIPT_MS,
   tidyQuestion,
   wakeHints,
-  wakeWords
+  wakeWords,
+  type Wake
 } from '../shared/listen'
+import { applyFixes, callCandidate, learnedCalls, MISSED_CALL_MS, RETYPE_MS } from '../shared/voicelearn'
+import type { VoiceStore } from './voicestore'
 import type { Character, ListenLocale, ListenStatus } from '../shared/types'
 import { Ducker } from './duck'
 
@@ -29,6 +32,8 @@ export interface ListenOptions {
   locale: ListenLocale
   character: Character
   duckMusic: boolean
+  /** Names from memory (people, places…), sent to the recognizer as expected words. */
+  memoryWords?: () => string[]
 }
 
 export interface ListenEvents {
@@ -71,7 +76,7 @@ export class Listener {
   private holds = 0
   private ducker = new Ducker()
   /** After the name: the question so far. */
-  private q: { text: string; wokeAt: number; changedAt: number; settled: boolean } | null = null
+  private q: { text: string; wokeAt: number; changedAt: number; settled: boolean; word: string } | null = null
   private resetAt = 0
   private tick: NodeJS.Timeout | null = null
   private waitReply: NodeJS.Timeout | null = null
@@ -85,7 +90,45 @@ export class Listener {
   /** The helper has started listening once: before that, it may be waiting on the microphone prompt. */
   private started = false
 
-  constructor(private readonly on: ListenEvents) {}
+  /** Voice learning (voicelearn.ts): the lone word that may be a missed call, and the last question heard. */
+  private candidate: { word: string; key: string; at: number } | null = null
+  private lastHeard: { text: string; at: number } | null = null
+  private wokeAt = 0
+
+  constructor(
+    private readonly on: ListenEvents,
+    private readonly learned: VoiceStore
+  ) {}
+
+  /** Her name as built in plus the call words learned from the user's voice. */
+  private wake(): Wake {
+    const w = wakeWords(this.opts.character)
+    return { names: w.names, calls: [...w.calls, ...learnedCalls(this.learned.data)] }
+  }
+
+  /**
+   * The user opened the chat by hand. Right after a lone unknown word ("Pally.") that was probably a
+   * call she missed: it counts towards learning it as her name.
+   */
+  chatOpened(): void {
+    const c = this.candidate
+    this.candidate = null
+    if (!c || this.q || Date.now() - this.wokeAt < 3000 || Date.now() - c.at > MISSED_CALL_MS) return
+    debug('missed call?', c.word)
+    this.learned.call(c.word, 1)
+  }
+
+  /**
+   * A typed message. Right after a voice question (sent, or cancelled by typing), the same question
+   * typed again with a word fixed teaches that fix. Typed names become expected words.
+   */
+  typed(text: string): void {
+    const h = this.lastHeard
+    if (h && text === h.text) return // the voice question itself, sent from the balloon
+    this.lastHeard = null
+    if (h && Date.now() - h.at <= RETYPE_MS) this.learned.fixesFrom(h.text, text)
+    this.learned.typed(text)
+  }
 
   /** Settings changed: start, stop or restart listening as needed. */
   configure(next: ListenOptions): void {
@@ -112,9 +155,11 @@ export class Listener {
     if (this.holds === 0) this.resume()
   }
 
-  /** Esc while listening to a question. */
+  /** Esc while listening to a question (or typing instead). */
   cancel(): void {
     if (!this.q) return
+    if (this.q.text) this.lastHeard = { text: tidyQuestion(this.q.text), at: Date.now() }
+    this.rate(-1) // woken by a learned word and stopped right away: maybe it wasn't her name
     this.endQuestion()
     this.on.cancel()
     void this.ducker.restore()
@@ -166,7 +211,8 @@ export class Listener {
     if (this.holds > 0) return this.setStatus('paused', '')
     this.setStatus('starting', '')
     this.resetAt = Date.now()
-    this.send({ cmd: 'listen', locale: this.opts.locale, hints: wakeHints(this.opts.character) })
+    const hints = this.learned.hints(wakeHints(this.opts.character), this.opts.memoryWords?.() ?? [])
+    this.send({ cmd: 'listen', locale: this.opts.locale, hints })
   }
 
   private resume(): void {
@@ -330,8 +376,10 @@ export class Listener {
     if (m.type === 'paused') return this.setStatus(this.opts.enabled ? 'paused' : 'off', '')
     if (m.type !== 'text' || this.holds > 0 || this.skipUntil) return
     if (this.q) return this.follow(m.text, m.settled !== false)
-    const after = afterWake(m.text, wakeWords(this.opts.character))
-    if (after === null) {
+    const wake = this.wake()
+    const found = findWake(m.text, wake)
+    if (!found) {
+      this.noteCandidate(m.text, wake)
       // No name: keep the running transcript short.
       if (Date.now() - this.resetAt > RESET_TRANSCRIPT_MS || m.text.length > 200) {
         this.resetAt = Date.now()
@@ -339,8 +387,11 @@ export class Listener {
       }
       return
     }
+    const after = applyFixes(found.after, this.learned.data)
     const now = Date.now()
-    this.q = { text: after, wokeAt: now, changedAt: now, settled: m.settled !== false }
+    this.wokeAt = now
+    this.candidate = null
+    this.q = { text: after, wokeAt: now, changedAt: now, settled: m.settled !== false, word: found.word }
     this.setStatus('hearing', '')
     if (this.opts.duckMusic) void this.ducker.duck()
     this.on.wake()
@@ -352,7 +403,8 @@ export class Listener {
   private follow(text: string, settled: boolean): void {
     const q = this.q!
     q.settled = settled
-    const own = afterWake(text, wakeWords(this.opts.character))
+    const found = findWake(text, this.wake())
+    const own = found ? applyFixes(found.after, this.learned.data) : null
     if (own === null || own === q.text) return // (null: the recognizer rewrote the name for a moment)
     q.text = own
     q.changedAt = Date.now()
@@ -366,6 +418,8 @@ export class Listener {
     if (verdict === 'wait') return
     if (verdict === 'cancel') return this.cancel()
     const question = tidyQuestion(q.text)
+    this.lastHeard = { text: question, at: Date.now() }
+    this.rate(1)
     this.endQuestion()
     // Stop listening right away; the reply holds it from here (or it starts again if none comes).
     this.send({ cmd: 'pause' })
@@ -374,6 +428,20 @@ export class Listener {
       if (this.holds === 0) this.resume()
     }, REPLY_START_MS)
     this.on.ask(question)
+  }
+
+  /** A lone word in the transcript that may be her name, misheard (see chatOpened). */
+  private noteCandidate(text: string, wake: Wake): void {
+    const word = callCandidate(text, [...wake.names, ...wake.calls])
+    if (!word) return
+    const key = `${word}@${text.toLowerCase().lastIndexOf(word)}` // the same spot: the same call
+    if (this.candidate?.key !== key) this.candidate = { word, key, at: Date.now() }
+  }
+
+  /** How a question woken by a learned call word went: up when it was asked, down when cancelled. */
+  private rate(delta: number): void {
+    const word = this.q?.word
+    if (word && word in this.learned.data.calls) this.learned.call(word, delta)
   }
 
   private endQuestion(): void {

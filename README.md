@@ -268,6 +268,11 @@ Off by default. Turn on **Listen for "Polly"** in Settings → Voice input (or i
 
 How it works: a small Swift helper (`sidecar/listen.swift`) uses Apple's **SpeechAnalyzer** (macOS 26), which runs on Apple's on-device speech models. No audio leaves your Mac, and Siri and Dictation can stay off. Poppy compiles the helper with Apple's Swift compiler the first time you turn it on (about 10 seconds; it needs the Xcode command line tools: `xcode-select --install`). macOS then asks once whether Poppy may use the microphone; the question is asked for Poppy's helper itself, however you started Poppy.
 
+- **Learns how it hears you.** Apple's recognizer can't be trained on one voice, so Poppy learns how it writes *your* speech, and corrects for it (Settings → Voice input → **What Polly learned about your voice**, each with a × to forget it):
+  - **Her name as you say it.** When a sentence is just one unknown word ("Pelly.") and you open the chat by hand within 10 seconds, that word was probably a call she missed. After two times it counts as her name (only when you call her with it). A learned word that wakes her and leads to a question gets stronger; one you cancel right away gets weaker and is dropped.
+  - **Words it gets wrong.** When you type a voice question again within a minute with a word fixed ("Utrek" → "Utrecht"), she remembers the swap and fixes it in what she hears from the second time on (only for words that look alike).
+  - **Your words.** Names and places from her memory, fixed words and names you often type go to the recognizer as words to expect.
+  - If others talk near your Mac, it learns how their speech comes out too: it can't tell voices apart.
 - **Languages:** English or Dutch for your question (one at a time; pick it in Settings). Apple's speech model for a language downloads once, through macOS, the first time it's used.
 - **Lower the music:** on by default; turn off **Turn Spotify and Music down while I talk** to leave the music alone. The first time, macOS asks whether Poppy may control Spotify or Music.
 - **Needs** macOS 26 or newer.
@@ -312,7 +317,7 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
 - **Tools** (off by default) run the MCP servers you list in `mcp.json`, on your Mac. What a server does with your data is up to that server. Tools that can change things ask you first.
 - **Poppy's own tools,** when tools are on: the weather sends the place name to Open-Meteo; web search sends your search through the local search engine to search engines like Google, Bing and DuckDuckGo, and Poppy fetches the pages it reads from your Mac (never local-network addresses); with Ollama's web search picked, searches and pages go through ollama.com (with your key); playing music by name sends the search to Spotify. Music controls stay on your Mac.
-- **Voice input** (off by default) listens to your microphone while it's on and turns it into text on your Mac with Apple's on-device speech recognition; nothing is recorded or sent anywhere. Only the question after the name goes to Poppy's brain, like a typed one.
+- **Voice input** (off by default) listens to your microphone while it's on and turns it into text on your Mac with Apple's on-device speech recognition; nothing is recorded or sent anywhere. What it learns about your voice is only words and counts, in `~/Library/Application Support/poppy/voice-learned.json` (forget it in Settings, or with **Forget everything**). Only the question after the name goes to Poppy's brain, like a typed one.
 - No analytics, no telemetry, and no accounts unless you add a key yourself (Claude, Ollama web search, Spotify).
 
 ## Troubleshooting
@@ -348,7 +353,7 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npx electron .` | Start the built app |
 | `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
 | `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
-| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, waiting poses, pose picking, voice input rules) |
+| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, waiting poses, pose picking, voice input rules, voice learning) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |

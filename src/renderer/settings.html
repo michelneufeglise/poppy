@@ -90,6 +90,10 @@
           <span class="field select"><select id="listen-locale"></select></span>
           <label class="check"><input id="duck-on" type="checkbox" /> Turn Spotify and Music down while I talk</label>
           <p id="listen-status" class="hint"></p>
+          <h3 data-buddy="What {name} learned about your voice">What Poppy learned about your voice</h3>
+          <p class="hint" data-buddy="Apple's recognition can't be trained on one voice, so {name} learns how it hears you: words your call came out as when {he} missed it, words you typed again to fix them, and names you often type. Only these words are kept, no audio.">Apple's recognition can't be trained on one voice, so Poppy learns how it hears you.</p>
+          <ul id="voice-learned" class="learned"></ul>
+          <button id="voice-forget" class="btn" type="button" hidden>Forget all of it</button>
         </section>
         <hr />
 

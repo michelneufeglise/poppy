@@ -418,6 +418,37 @@ api.onListenStatus((st) => {
   listenStatus = st
   showListen()
 })
+
+// What voice learning knows: her name as heard, word fixes, typed names. Each can be forgotten.
+type Learned = Awaited<ReturnType<typeof api.voiceLearned>>
+const learnedList = $<HTMLUListElement>('voice-learned')
+const voiceForget = $<HTMLButtonElement>('voice-forget')
+const xIcon = new URL('../../assets/chat/close.png', import.meta.url).href
+let lastLearned: Learned | null = null
+function showLearned(l: Learned): void {
+  lastLearned = l
+  const rows: [string, 'call' | 'fix' | 'word', string][] = [
+    ...l.calls.map((w): [string, 'call', string] => [`"${w}" means ${me().name}`, 'call', w]),
+    ...l.fixes.map((f): [string, 'fix', string] => [`"${f.from}" → "${f.to}"`, 'fix', f.from]),
+    ...l.words.map((w): [string, 'word', string] => [`expects "${w}"`, 'word', w])
+  ]
+  learnedList.replaceChildren(
+    ...rows.map(([text, kind, key]) => {
+      const li = document.createElement('li')
+      const x = Object.assign(document.createElement('button'), { type: 'button', className: 'del', title: 'Forget this' })
+      x.setAttribute('aria-label', `Forget ${text}`)
+      x.innerHTML = `<img src="${xIcon}" alt="" draggable="false">`
+      x.addEventListener('click', () => api.forgetVoice(kind, key))
+      li.append(Object.assign(document.createElement('span'), { textContent: text }), x)
+      return li
+    })
+  )
+  if (!rows.length) learnedList.replaceChildren(Object.assign(document.createElement('li'), { className: 'hint', textContent: 'Nothing yet.' }))
+  voiceForget.hidden = !rows.length
+}
+voiceForget.addEventListener('click', () => api.forgetVoice('all'))
+api.onVoiceLearned(showLearned)
+void api.voiceLearned().then(showLearned)
 memoryOn.addEventListener('change', () => save({ memoryEnabled: memoryOn.checked }))
 embedModel.addEventListener('change', () => save({ embedModel: embedModel.value }))
 $('open-memory').addEventListener('click', () => api.openMemory())
@@ -496,4 +527,5 @@ followCharacter(() => {
   void api.memoryStats().then(showMemoryStats)
   showClaude(claude)
   if (settings) showListen()
+  if (lastLearned) showLearned(lastLearned)
 })

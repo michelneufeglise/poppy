@@ -55,14 +55,23 @@ const WORD = /[\p{L}\p{N}']+/gu
  * "Polly ... Polly, what time is it" starts at the second one.
  */
 export function afterWake(text: string, wake: Wake): string | null {
+  return findWake(text, wake)?.after ?? null
+}
+
+/** Like afterWake, plus which word woke her (to learn from how that went). */
+export function findWake(text: string, wake: Wake): { word: string; after: string } | null {
   let end = -1
+  let found = ''
   for (const m of text.matchAll(WORD)) {
     const word = m[0].toLowerCase()
     const after = m.index + m[0].length
-    if (wake.names.includes(word) || (wake.calls.includes(word) && isCalling(text, m.index, after))) end = after
+    if (wake.names.includes(word) || (wake.calls.includes(word) && isCalling(text, m.index, after))) {
+      end = after
+      found = word
+    }
   }
   if (end < 0) return null
-  return text.slice(end).replace(/^[\s,.!?;:—–-]+/, '').trim()
+  return { word: found, after: text.slice(end).replace(/^[\s,.!?;:—–-]+/, '').trim() }
 }
 
 /** First in its sentence ("hey", "uh", "oh"… before it are fine) and followed by , . ? ! or the end of the text. */

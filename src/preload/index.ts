@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
+import type { learnedSummary } from '../shared/voicelearn'
+type VoiceLearnedSummary = ReturnType<typeof learnedSummary>
 import type {
   AttachResult,
   BrainStatus,
@@ -83,6 +85,10 @@ const api = {
   /** Permissions and on-device support for the chosen language (asks for nothing). */
   checkListen: () => ipcRenderer.invoke('listen:check') as Promise<string>,
   onListenStatus: (cb: (s: ListenStatus) => void) => on('listen:status', cb),
+  /** Voice learning: what she learned, forgetting one word ('call' | 'fix' | 'word') or all of it. */
+  voiceLearned: () => ipcRenderer.invoke('listen:learned') as Promise<VoiceLearnedSummary>,
+  onVoiceLearned: (cb: (s: VoiceLearnedSummary) => void) => on('listen:learned', cb),
+  forgetVoice: (kind: 'call' | 'fix' | 'word' | 'all', key = '') => ipcRenderer.send('listen:forget', kind, key),
 
   // memory
   openMemory: () => ipcRenderer.send('memory:open'),

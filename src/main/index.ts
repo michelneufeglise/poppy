@@ -40,6 +40,7 @@ import { getSettings, onSettingsChanged, updateSettings } from './settings'
 import { spokenWrapUp } from './summary'
 import { listVoices, Voice, type Speech } from './voice'
 import { Listener, type ListenOptions } from './listen'
+import { VoiceStore } from './voicestore'
 
 const BUDDY_W = 380
 const BUDDY_H = 560
@@ -77,6 +78,7 @@ const brain = new Brain(getSettings, (patch) => setSettings(patch))
 const kokoro = new Kokoro()
 const voice = new Voice(kokoro)
 /** Voice input: listens for the name, then the question (Apple's recognition on this Mac). */
+const voiceStore = new VoiceStore()
 const listener = new Listener({
   wake: () => {
     showBuddy()
@@ -89,12 +91,18 @@ const listener = new Listener({
     sendAll('listen:status', st)
     updateTrayMenu()
   }
-})
+}, voiceStore)
 const listenOptions = (s: Settings): ListenOptions => ({
   enabled: s.listenEnabled,
   locale: s.listenLocale,
   character: s.character,
-  duckMusic: s.duckMusic
+  duckMusic: s.duckMusic,
+  // People, places, projects… she knows about: expected words for the recognizer.
+  memoryWords: () =>
+    (memory?.store.entities() ?? [])
+      .filter((e) => e.name !== 'the user' && /^[\p{L}][\p{L}\p{N}' -]{1,30}$/u.test(e.name))
+      .map((e) => e.name)
+      .slice(0, 40)
 })
 let lastLang: SpeechLang = 'en'
 let history: BrainMessage[] = []
@@ -643,7 +651,10 @@ function registerIpc(): void {
     const b = buddy.getBounds()
     setSettings({ position: { x: b.x, y: b.y + b.height - BUDDY_H } })
   })
-  ipcMain.on('buddy:chat-open', (_e, open: boolean) => setChatOpen(!!open))
+  ipcMain.on('buddy:chat-open', (_e, open: boolean) => {
+    setChatOpen(!!open)
+    if (open) listener.chatOpened() // voice learning: right after a lone word, maybe a missed call
+  })
   ipcMain.on('buddy:focus', () => {
     app.focus({ steal: true })
     buddy?.focus()
@@ -652,6 +663,7 @@ function registerIpc(): void {
   ipcMain.on('chat:send', (_e, text: string, ids: unknown) => {
     const attachmentIds = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []
     // No listening while she answers and speaks, so she never hears herself.
+    listener.typed(String(text)) // voice learning: a retyped voice question, typed names
     listener.hold()
     // The reply is done before she has finished saying it: wait for her voice too, plus a moment for
     // the room to go quiet (heard in a live test: she picked up the end of her own reply).
@@ -777,6 +789,7 @@ function registerIpc(): void {
     if (response !== 0) return false
     stopReply()
     memory.store.forgetEverything()
+    voiceStore.forgetAll()
     history = []
     conversationId = memory.store.newConversation()
     sendBuddy('ui:forgot-all')
@@ -822,6 +835,12 @@ function registerIpc(): void {
   })
   ipcMain.handle('voice:list', () => listVoices())
   ipcMain.handle('listen:status', () => listener.status)
+  // What voice learning knows (Settings → Voice input), and forgetting it.
+  ipcMain.handle('listen:learned', () => voiceStore.summary())
+  ipcMain.on('listen:forget', (_e, kind: unknown, key: unknown) => {
+    if ((kind === 'call' || kind === 'fix' || kind === 'word') && typeof key === 'string') voiceStore.forget(kind, key)
+    else if (kind === 'all') voiceStore.forgetAll()
+  })
   // How long nobody has used the Mac's keyboard or mouse (seconds): she gets sleepy sooner then.
   ipcMain.handle('system:idle', () => powerMonitor.getSystemIdleTime())
   ipcMain.handle('listen:check', () => listener.check())
@@ -855,6 +874,8 @@ if (!app.requestSingleInstanceLock()) {
     toolBox = new ToolBox(join(app.getPath('userData'), 'mcp.json'), () => builtinServers(getSettings()))
     toolBox.onStatus((st) => sendAll('tools:status', st))
     void toolBox.setEnabled(getSettings().toolsEnabled)
+    voiceStore.load()
+    voiceStore.onChange = () => sendAll('listen:learned', voiceStore.summary())
     listener.configure(listenOptions(getSettings()))
     brain.onStatus(() => sendAll('claude:status', { ...brain.status(), masked: maskedApiKey() }))
     onSettingsChanged((s) => {
