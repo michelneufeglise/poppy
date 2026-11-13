@@ -56,7 +56,14 @@ const api = {
   onChatUpdate: (cb: (u: ChatUpdate) => void) => on('chat:update', cb),
   onChatSpoken: (cb: (id: number) => void) => on('chat:spoken', cb),
   onChatError: (cb: (e: ChatError) => void) => on('chat:error', cb),
+  /** One walking step: main glides the window by dx over ms. Resolves with how far from home she is. */
+  walk: (dx: number, ms: number): Promise<number> => ipcRenderer.invoke('buddy:walk', dx, ms),
+  walkOffset: (): Promise<number> => ipcRenderer.invoke('buddy:walk-offset'),
+  /** The mouse pointer, relative to the window, while it's near (null when far away). */
+  onPointer: (cb: (p: { x: number; y: number } | null) => void) => on('ui:pointer', cb),
   onSpeaking: (cb: (speaking: boolean) => void) => on('voice:speaking', cb),
+  /** How loud each moment of the sentence that just started is (Kokoro only). */
+  onVoiceLevels: (cb: (l: { levels: number[]; stepMs: number }) => void) => on('voice:levels', cb),
   /** The last conversation, to show again after a restart. */
   chatHistory: () => ipcRenderer.invoke('chat:history') as Promise<PastMessage[]>,
   /** The "good" / "not quite" links under Poppy's reply. */

@@ -2,9 +2,12 @@ import { MAX_FILES } from '../shared/attachments'
 import { buddyOf } from '../shared/buddy'
 import { Blinker, type BlinkFrames } from './blink'
 import { Motion } from './motion'
+import { FIRST_WALK_AFTER, HOME_HOP_MS, STEP_MS, STEP_PAUSE_MS, WALK_EVERY, planWalk } from './walk'
 import {
+  AWAY_DROWSY_MS,
   DESK_AFTER_MS,
   DESK_EVERY,
+  DESK_POSES,
   EXTRA_POSES,
   HEARING_EVERY,
   basePose,
@@ -211,6 +214,9 @@ window.setInterval(() => {
     setState('sleeping')
   } else if (idleFor > yawnAt) {
     if (state === 'idle') setState('tired')
+  } else if (walkOn && state === 'idle' && !walking && idleFor > DESK_AFTER_MS && Date.now() >= nextWalkAt && macIdleMs < AWAY_DROWSY_MS) {
+    nextWalkAt = Date.now() + between(WALK_EVERY)
+    void api.walkOffset().then((offset) => walkSteps(planWalk(offset)))
   } else if (state === 'idle' && idleFor > DESK_AFTER_MS && Date.now() >= nextRestAt) {
     const { pose, holdMs } = nextRestPose(restStage(idleFor, macIdleMs), state)
     nextRestAt = Date.now() + between(DESK_EVERY)
@@ -218,6 +224,73 @@ window.setInterval(() => {
     setState(pose, holdMs, 'idle')
   }
 }, 5_000)
+
+// ---------- alive: her voice, the pointer, walking (motion.ts, walk.ts) ----------
+
+// Her bob follows how loud her voice is (Kokoro sentences; the Mac voice keeps the fixed bob).
+api.onVoiceLevels((l) => motion.voice(l.levels, l.stepMs))
+
+/** Moods that end a reply with two happy hops. */
+const CELEBRATE_MOODS = new Set<Pose>(['happy', 'excited', 'cheerful', 'laughing', 'proud', 'clapping'])
+
+// She leans toward the pointer when it's near, and perks up when it comes by after a quiet while.
+const PERK_AFTER_MS = 8_000
+let pointerFarSince = Date.now()
+const calmPose = (p: Pose): boolean => p === 'idle' || (DESK_POSES as readonly Pose[]).includes(p)
+api.onPointer((p) => {
+  if (!p) {
+    motion.look(null)
+    pointerFarSince ||= Date.now()
+    return
+  }
+  if (state === 'sleeping' || drag) return motion.look(null)
+  const r = poppy.getBoundingClientRect()
+  const dx = p.x - (r.left + r.width / 2)
+  const dy = p.y - (r.top + r.height * 0.45)
+  motion.look(dx, dy)
+  const d = Math.hypot(dx, dy)
+  if (d > 500) {
+    pointerFarSince ||= Date.now()
+  } else if (d < 250) {
+    if (pointerFarSince && Date.now() - pointerFarSince > PERK_AFTER_MS && panel.hidden && !replying && !walking && calmPose(state)) motion.perk()
+    pointerFarSince = 0
+  }
+})
+
+// Walking: a few hops left or right now and then (the rest tick above starts a walk), home again
+// before the chat opens. Main glides the window; she hops each step.
+let walkOn = true
+let walking = false
+let walkAbort = false
+let walkDone: Promise<void> = Promise.resolve()
+let nextWalkAt = Date.now() + FIRST_WALK_AFTER
+const pause = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+function walkSteps(steps: number[], ms = STEP_MS, rest = STEP_PAUSE_MS, height?: number): Promise<void> {
+  walking = true
+  walkDone = (async () => {
+    try {
+      for (const dx of steps) {
+        if (walkAbort || drag) break
+        motion.step(Math.sign(dx), ms, height)
+        await api.walk(dx, ms)
+        await pause(rest)
+      }
+    } finally {
+      walking = false
+    }
+  })()
+  return walkDone
+}
+
+/** Back home in one hop (before the chat opens), after any walk going on. */
+async function walkHome(): Promise<void> {
+  walkAbort = true
+  await walkDone
+  walkAbort = false
+  const offset = await api.walkOffset()
+  if (Math.abs(offset) >= 2) await walkSteps([-offset], HOME_HOP_MS, 0, 24)
+}
 
 // ---------- mouse: click-through, drag, click ----------
 
@@ -448,23 +521,31 @@ function afterGrow(then: () => void): void {
 const CLOSED_HEIGHT = 560
 
 /** `focus`: take the keyboard (not when opened by voice: the user may be typing in another app). */
+let opening = false
 function openPanel(focus = true): void {
   touch()
   bubble.hidden = true
-  if (!panel.hidden) return
-  api.setChatOpen(true)
-  afterGrow(() => {
-    panel.hidden = false
-    document.body.classList.add('chat-open')
-    showHint()
-    fitInput()
-    if (focus) {
-      api.focus()
-      input.focus()
-    }
-  })
+  if (!panel.hidden || opening) return
+  opening = true
   if (!replying) setState('listening')
   restartWaiting()
+  // She hops home first if she walked off, so the chat opens where you put her.
+  void walkHome().then(() => {
+    api.setChatOpen(true)
+    afterGrow(() => showPanel(focus))
+  })
+}
+
+function showPanel(focus: boolean): void {
+  opening = false
+  panel.hidden = false
+  document.body.classList.add('chat-open')
+  showHint()
+  fitInput()
+  if (focus) {
+    api.focus()
+    input.focus()
+  }
 }
 
 function closePanel(): void {
@@ -476,6 +557,7 @@ function closePanel(): void {
 }
 
 function togglePanel(): void {
+  if (opening) return
   if (panel.hidden) openPanel()
   else closePanel()
 }
@@ -744,6 +826,7 @@ api.onChatSpoken((id) => {
   const mood = replyMood && replyMood !== 'idle' ? replyMood : null
   if (mood) setState(mood, 6000, panel.hidden ? 'idle' : 'listening')
   else setState(panel.hidden ? 'idle' : 'listening')
+  if (mood && CELEBRATE_MOODS.has(mood)) window.setTimeout(() => motion.celebrate(), 450)
   if (panel.hidden) bubbleTimer = window.setTimeout(() => (bubble.hidden = true), 9000)
 })
 
@@ -924,11 +1007,13 @@ api.chatHistory().then((past) => {
 
 api.getSettings().then((s) => {
   sleepAfterMs = s.sleepAfterMinutes * 60_000
+  walkOn = s.walkAround
   useCharacter(s.character)
   showBubble(`Hi! I'm ${buddyOf(s.character).name}. Click me to chat.`, 6000)
 })
 api.onSettingsChanged((s) => {
   sleepAfterMs = s.sleepAfterMinutes * 60_000
+  walkOn = s.walkAround
   useCharacter(s.character)
 })
 

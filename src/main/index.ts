@@ -123,6 +123,14 @@ const replyMessages = new Map<number, number>()
 let chatBusy = false
 /** How far the window had to move down to fit on screen when the chat opened (undone when it closes). */
 let pushedDown = 0
+/** Where she lives (the window's x where the user put her); she walks a little around it. */
+let homeX = 0
+/** How far she may walk from home, either way (px). */
+const WALK_RANGE = 250 // (the page's WALK_RANGE in walk.ts too)
+let walkTimer: NodeJS.Timeout | null = null
+let pointerTimer: NodeJS.Timeout | null = null
+/** Her window, while it still exists (it's destroyed while Poppy quits; timers may still fire then). */
+const liveBuddy = (): BrowserWindow | null => (buddy && !buddy.isDestroyed() ? buddy : null)
 
 // ---------- windows ----------
 
@@ -153,6 +161,7 @@ function onScreen(p: { x: number; y: number }): { x: number; y: number } {
 function createBuddy(): void {
   const saved = getSettings().position
   const pos = saved ? onScreen(saved) : defaultPosition()
+  homeX = pos.x
   buddy = new BrowserWindow({
     width: BUDDY_W,
     height: BUDDY_H,
@@ -206,7 +215,69 @@ function placeBuddy(p: { x: number; y: number }): void {
   if (!buddy) return
   const h = buddy.getBounds().height
   pushedDown = 0
+  stopWalk()
+  homeX = p.x
   buddy.setBounds({ x: p.x, y: p.y - (h - BUDDY_H), width: BUDDY_W, height: h })
+}
+
+/**
+ * One walking step: glides the window sideways over `ms` (the page hops at the same time). Stays
+ * within WALK_RANGE of home and on the screen; home itself is always allowed. Resolves with how far
+ * from home she is now.
+ */
+function walkStep(dx: number, ms: number): Promise<number> {
+  stopWalk()
+  const win = liveBuddy()
+  if (!win || chatOpen || !win.isVisible()) return Promise.resolve(win ? win.getBounds().x - homeX : 0)
+  const b = win.getBounds()
+  const wa = screen.getDisplayMatching(b).workArea
+  const min = Math.min(homeX, Math.max(homeX - WALK_RANGE, wa.x - 40))
+  const max = Math.max(homeX, Math.min(homeX + WALK_RANGE, wa.x + wa.width - BUDDY_W + 40))
+  const from = b.x
+  const to = Math.round(Math.min(max, Math.max(min, from + dx)))
+  if (to === from) return Promise.resolve(from - homeX)
+  const start = Date.now()
+  return new Promise((resolve) => {
+    walkTimer = setInterval(() => {
+      const t = Math.min(1, (Date.now() - start) / Math.max(1, ms))
+      const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+      const w = liveBuddy()
+      if (!w || chatOpen) return finish()
+      const [, y] = w.getPosition()
+      w.setPosition(Math.round(from + (to - from) * eased), y)
+      if (t >= 1) finish()
+    }, 16)
+    const finish = (): void => {
+      stopWalk()
+      const w = liveBuddy()
+      resolve(w ? w.getBounds().x - homeX : 0)
+    }
+  })
+}
+
+function stopWalk(): void {
+  if (walkTimer) clearInterval(walkTimer)
+  walkTimer = null
+}
+
+/**
+ * Where the mouse pointer is, relative to her window, about 10 times a second while she's on screen
+ * and it's near (null once when it goes far away), so she can lean toward it. Only sent when it moves.
+ */
+function watchPointer(): void {
+  let last = ''
+  pointerTimer = setInterval(() => {
+    const win = liveBuddy()
+    if (!win || !win.isVisible()) return
+    const c = screen.getCursorScreenPoint()
+    const b = win.getBounds()
+    const p = { x: c.x - b.x, y: c.y - b.y }
+    const near = p.x > -600 && p.x < b.width + 600 && p.y > -600 && p.y < b.height + 600
+    const key = near ? `${p.x},${p.y}` : 'away'
+    if (key === last) return
+    last = key
+    sendBuddy('ui:pointer', near ? p : null)
+  }, 100)
 }
 
 /** A paper window like the chat: no Mac title bar, the pencil frame is part of the page. */
@@ -642,6 +713,7 @@ function registerIpc(): void {
   })
   ipcMain.handle('buddy:get-position', () => buddy?.getPosition() ?? [0, 0])
   ipcMain.on('buddy:set-position', (_e, x: number, y: number) => {
+    stopWalk()
     buddy?.setPosition(Math.round(x), Math.round(y))
     pushedDown = 0 // moved by hand: stay where the user puts him
   })
@@ -649,7 +721,13 @@ function registerIpc(): void {
     if (!buddy) return
     // Saved as the closed window's top-left, whatever size the window has right now.
     const b = buddy.getBounds()
+    homeX = b.x // her new home: she walks around here now
     setSettings({ position: { x: b.x, y: b.y + b.height - BUDDY_H } })
+  })
+  ipcMain.handle('buddy:walk', (_e, dx: number, ms: number) => walkStep(Number(dx) || 0, Math.min(2000, Math.max(50, Number(ms) || 400))))
+  ipcMain.handle('buddy:walk-offset', () => {
+    const win = liveBuddy()
+    return win ? win.getBounds().x - homeX : 0
   })
   ipcMain.on('buddy:chat-open', (_e, open: boolean) => {
     setChatOpen(!!open)
@@ -868,6 +946,7 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform === 'darwin') app.dock?.hide()
     registerIpc()
     voice.on('speaking', (on: boolean) => sendBuddy('voice:speaking', on))
+    voice.on('levels', (l: { levels: number[]; stepMs: number }) => sendBuddy('voice:levels', l))
     kokoro.on('status', (status) => sendAll('voice:kokoro-status', status))
     warmKokoro(getSettings())
     startMemory()
@@ -888,11 +967,14 @@ if (!app.requestSingleInstanceLock()) {
     })
     createBuddy()
     createTray()
+    watchPointer()
   })
 
   // Poppy lives in the menu bar; closing the settings window doesn't quit.
   app.on('window-all-closed', () => {})
   app.on('before-quit', () => {
+    if (pointerTimer) clearInterval(pointerTimer)
+    stopWalk()
     voice.stop()
     listener.shutdown()
     kokoro.shutdown()

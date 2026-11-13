@@ -143,6 +143,12 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 
 While Poppy works you'll see him change: *listening* while you type, *thinking* while the model works, and while he speaks *talking* and the mood the model picked take turns, sentence by sentence (in longer replies with a close relative now and then: happy can become cheerful or laughing, thinking can become focused). After a web search or another tool, the answer's own mood counts, not the "let me look" one. Made-up mood tags get the nearest drawing ([chuckling] → laughing). While the chat is open and waiting for you, he doesn't just stand there: every 6–12 seconds he switches between calm waiting poses (curious, hopeful, wonder, dreamy, playful, thinking…), and after a minute bored, sighing or lazy can come up too. Start typing and he's back to listening. When you call him by voice he shows *listening* at once, and while you speak he switches between his listening drawings (Polly has two) and attentive poses (curious, wonder, hopeful). With the chat closed, every 30–60 seconds he briefly shows a calm or body pose (dreamy, playful, cuddly, bored, lazy, hungry, thirsty, sneaky…); after 3 minutes of quiet (or 2 minutes without anyone at the Mac) the poses get sleepier, with short naps, until he falls asleep. While the chat is open, the name of the current state is written next to his feet.
 
+He moves, too (always the whole drawing, never the drawing itself):
+- **With his voice.** While Kokoro speaks, his bob follows how loud each moment is: loud words bounce, pauses go still (the Mac voice keeps a steady bob).
+- **Toward your mouse.** When the pointer comes near he leans and tilts its way, and when it comes by after a quiet while he perks up with a little hop. He doesn't look while asleep.
+- **A little walk.** About once a minute while you're using your Mac and the chat is closed, he hops a few steps left or right along the bottom of the screen, never more than 250 px from where you put him, and hops back home before the chat opens. His spot stays where you dragged him. Turn it off in Settings → Behavior.
+- **Little moves.** He fidgets (shifts weight, looks around, bounces on his toes, wobbles, looks up), many moods start with their own move (hello stretches up, angry stamps, curious leans in, sleeping sinks down), and a happy reply ends with two happy hops.
+
 ## Attachments
 
 Click **attach** in your balloon, choose **Attach file…** from the ≡ menu, or simply **drag files onto the chat**. Each file shows up as a small name tag under your question; click its × to remove it. Then type your question (or nothing at all) and press Send.
@@ -301,6 +307,7 @@ Open them from the gear in the chat balloon or the menu-bar icon → Settings…
 | Language of your question | English or Dutch. |
 | Turn Spotify and Music down while I talk | On by default. |
 | Fall asleep after | Minutes of quiet before Poppy dozes off. Default 10. |
+| Let Poppy walk around a little | A few hops left or right about once a minute, never more than 250 px from his spot. On by default. |
 | Learn from our chats | Memory learning on or off. |
 | Let Poppy use tools | Tools on or off. Off by default. Below it: Poppy's own tools (weather with a home city, web search through the local search engine or Ollama with a key, music with optional Spotify keys), then each MCP server with its tools, *Let … change things without asking*, **Edit tools file…**, **Reload**. |
 | Tool rounds per reply | How many rounds of tool calls per reply (1–10). Default 5. |

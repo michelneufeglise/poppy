@@ -1,6 +1,8 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { unlink } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { levels, readWav, LEVEL_STEP_MS } from '../shared/loudness'
 import type { VoiceInfo } from '../shared/types'
 import type { Kokoro } from './kokoro'
 
@@ -26,7 +28,8 @@ interface Item extends Speech {
 /**
  * Speaks sentences in order. Kokoro sentences are turned into audio a few ahead,
  * so there are no gaps; they play with `afplay`. Mac voice sentences use `say`.
- * Emits 'speaking' (true/false) and 'idle'.
+ * Emits 'speaking' (true/false), 'levels' (how loud each moment of a Kokoro sentence is, as it
+ * starts) and 'idle'.
  */
 export class Voice extends EventEmitter {
   private queue: Item[] = []
@@ -108,6 +111,7 @@ export class Voice extends EventEmitter {
     this.prefetch()
 
     const wav = item.wav ? await item.wav : null
+    const loud = wav ? await loudness(wav) : null
     if (gen !== this.gen) {
       if (wav) unlink(wav, () => {})
       return
@@ -115,6 +119,7 @@ export class Voice extends EventEmitter {
     const proc = wav ? spawn('afplay', [wav], { stdio: 'ignore' }) : spawn('say', sayArgs(item), { stdio: 'ignore' })
     this.proc = proc
     this.emit('speaking', true)
+    if (loud) this.emit('levels', loud)
     const done = (): void => {
       if (wav) unlink(wav, () => {})
       if (this.proc !== proc) return
@@ -131,6 +136,16 @@ function sayArgs(item: Speech): string[] {
   if (item.macVoice) args.push('-v', item.macVoice)
   args.push('--', item.text)
   return args
+}
+
+/** How loud each moment of a sentence is (for her bob), or null if the file can't be read. */
+async function loudness(wav: string): Promise<{ levels: number[]; stepMs: number } | null> {
+  try {
+    const pcm = readWav(await readFile(wav))
+    return pcm ? { levels: levels(pcm), stepMs: LEVEL_STEP_MS } : null
+  } catch {
+    return null
+  }
 }
 
 function discard(wav: Promise<string | null> | undefined): void {

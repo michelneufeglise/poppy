@@ -94,6 +94,8 @@ export interface Settings {
   /** 'summary': read along up to about 40 words, then say a short wrap-up of the rest. */
   longReplies: 'summary' | 'full'
   sleepAfterMinutes: number
+  /** Walks a few steps around her spot now and then (chat closed). */
+  walkAround: boolean
   position: { x: number; y: number } | null
   /** Learn from chats (facts, knowledge graph, lessons). What's already known is still used when off. */
   memoryEnabled: boolean
@@ -152,6 +154,7 @@ export const DEFAULT_SETTINGS: Settings = {
   rate: 185,
   longReplies: 'summary',
   sleepAfterMinutes: 10,
+  walkAround: true,
   position: null,
   memoryEnabled: true,
   embedModel: 'nomic-embed-text',

@@ -33,6 +33,7 @@ const dutchVoice = $<HTMLSelectElement>('dutch-voice')
 const listenOn = $<HTMLInputElement>('listen-on')
 const listenLocale = $<HTMLSelectElement>('listen-locale')
 const duckOn = $<HTMLInputElement>('duck-on')
+const walkOn = $<HTMLInputElement>('walk-on')
 const listenStatusEl = $<HTMLParagraphElement>('listen-status')
 let listenStatus: ListenStatus = { state: 'off', message: '' }
 /** What the last check said about permissions and the language (only checked while it's on). */
@@ -150,6 +151,7 @@ function render(): void {
   listenOn.checked = settings.listenEnabled
   listenLocale.value = settings.listenLocale
   duckOn.checked = settings.duckMusic
+  walkOn.checked = settings.walkAround
   showListen()
   memoryOn.checked = settings.memoryEnabled
   if (document.activeElement !== embedModel && embedModel.options.length) embedModel.value = settings.embedModel
@@ -414,6 +416,7 @@ listenLocale.addEventListener('change', async () => {
   void checkListen()
 })
 duckOn.addEventListener('change', () => save({ duckMusic: duckOn.checked }))
+walkOn.addEventListener('change', () => save({ walkAround: walkOn.checked }))
 api.onListenStatus((st) => {
   listenStatus = st
   showListen()
