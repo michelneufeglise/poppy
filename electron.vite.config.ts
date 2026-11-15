@@ -10,7 +10,8 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           settings: resolve(__dirname, 'src/renderer/settings.html'),
-          memory: resolve(__dirname, 'src/renderer/memory.html')
+          memory: resolve(__dirname, 'src/renderer/memory.html'),
+          setup: resolve(__dirname, 'src/renderer/setup.html')
         }
       }
     }

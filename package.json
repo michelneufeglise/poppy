@@ -23,7 +23,8 @@
     "build-listener": "mkdir -p out && xcrun swiftc -O sidecar/listen.swift -o out/listen -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker sidecar/listen-Info.plist",
     "searxng": "sh scripts/searxng.sh",
     "test": "vitest run",
-    "cut-chat": "python3 scripts/cut_chat.py"
+    "cut-chat": "python3 scripts/cut_chat.py",
+    "setup": "electron-vite build && electron . --setup"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

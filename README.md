@@ -4,15 +4,26 @@
 
 Poppy is a small pencil-drawn character who sits on your desktop. Click him and the chat opens like a comic strip: you type in your own speech balloon, and he answers in his. You can ask questions, drop in pictures, PDFs or text files, and he answers out loud. And he keeps learning: he remembers what you tell him, builds a small map of the people and things in your life, and learns from your feedback how you like to be answered. By default everything runs on your own Mac: the language model runs in [Ollama](https://ollama.com), and the voice is [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) or a built-in Mac voice. No accounts, no cloud, no tracking. If you want quicker, smarter answers, you can give Poppy an Anthropic API key and he answers with Claude Haiku, with Ollama as the backup.
 
-![Poppy on the desktop, the chat balloon and the settings window](docs/screenshots/overview.png)
+Poppy comes as two characters: **Poppy**, and **Polly**, the female version with cat ears. Both have 48 hand-drawn poses, and Polly also blinks and moves her mouth when she talks. This is Polly:
+
+<p align="center"><img src="docs/screenshots/polly-poses.jpg" alt="Twelve of Polly's 48 hand-drawn poses: hello, happy, curious, thinking, talking, laughing, listening, excited, chilling, sleeping, cuddly and proud" width="900"></p>
+
+**Install on a Mac with one line.** Polly checks your Mac, asks before she installs anything, and walks you through the rest ([details](#install-on-macos)):
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/michelneufeglise/poppy/main/install.sh)"
+```
+
+![Polly on the desktop, the comic-strip chat and the settings window](docs/screenshots/overview.png)
 
 ---
 
 ## Contents
 
 - [What Poppy can do](#what-poppy-can-do)
+- [Install on macOS](#install-on-macos)
 - [What you need](#what-you-need)
-- [Install and run](#install-and-run)
+- [Install by hand](#install-by-hand)
 - [First start](#first-start)
 - [Using Poppy](#using-poppy)
 - [Attachments](#attachments)
@@ -46,9 +57,68 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 
 | On the desktop | The chat balloon | Settings |
 | --- | --- | --- |
-| ![Poppy waving with a speech bubble](docs/screenshots/floating.png) | ![The chat balloon above Poppy, with an image attachment](docs/screenshots/chat.png) | ![The settings window](docs/screenshots/settings.png) |
+| ![Polly on the desktop with a speech bubble](docs/screenshots/floating.png) | ![The comic-strip chat above Polly: earlier balloons fade out above, her answer under your empty balloon](docs/screenshots/chat.png) | ![The settings window, with Polly picked](docs/screenshots/settings.png) |
+
+## Install on macOS
+
+Polly installs herself. Paste this into Terminal:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/michelneufeglise/poppy/main/install.sh)"
+```
+
+Or, if you'd rather look at the script first:
+
+```bash
+git clone https://github.com/michelneufeglise/poppy.git
+```
+
+```bash
+cd poppy && ./install.sh
+```
+
+**What the script does** ([`install.sh`](install.sh)). It asks before it installs anything, and never asks for your password:
+
+1. Checks your Mac: macOS 12 or newer, the chip and the memory.
+2. Gets Apple's command line tools (for git) if they're missing, through Apple's own installer.
+3. Downloads Poppy into `~/poppy` (or the folder in `POPPY_DIR`), or updates the copy that's there.
+4. Checks for Node 20 or newer. If it's missing, it installs it with Homebrew, or opens nodejs.org when there's no Homebrew.
+5. Installs the exact package versions from `package-lock.json`, builds Poppy, and starts it with the setup guide.
+
+In iTerm2 and WezTerm, Polly's own drawings show up in the terminal too.
+
+### The setup guide
+
+Then Polly takes over in a window of her own: seven steps, with one of her drawings at every step showing how it's going (proud of your Mac, anxious when Ollama is missing, busy while she downloads, clapping when it's all done). She checks, tells you what she found, and asks "May I…?" before she installs or downloads anything. With Homebrew she installs things herself. Without it, she opens the official download page and checks again when you're back.
+
+![Four steps of the setup guide: hello, Ollama is missing, downloading a model, all set](docs/screenshots/setup-steps.jpg)
+
+| Step | What Polly checks | What she can do for you, after your yes |
+| --- | --- | --- |
+| **1. Hello** | | Pick Poppy or Polly |
+| **2. Your Mac** | macOS version, chip, memory, free disk space, the Swift compiler (for voice input), Homebrew | Get Apple's command line tools (Apple's own installer) |
+| **3. Ollama** | Is Ollama installed, and is it running? | Install Ollama (`brew install --cask ollama-app`), or wake it up |
+| **4. A model** | Which model fits your memory and disk: `qwen3.6:35b-a3b` with 32 GB or more, `gemma3:4b` with 12 GB or more, `qwen3:4b-instruct` below that (or pick another), plus `nomic-embed-text` for her memory | Download them through Ollama, with a progress bar |
+| **5. Voice** | Python 3.10 or newer, Kokoro and its voice files, and whether voice input can work on this Mac | Install Python (`brew install python`) and `kokoro-onnx` (pip, for your user only), then let you hear her voice |
+| **6. Tools** | Docker, the local search engine, Node (`npx`) for MCP servers | Install Docker Desktop (`brew install --cask docker-desktop`), start Docker and the search engine, and turn tools on |
+| **7. All set** | A summary of what's ready and what was skipped | "Let's chat!" opens the chat |
+
+<p align="center">
+<img src="docs/screenshots/setup/1-hello.jpg" alt="Step 1: Polly waves hello and asks who lives on your desk" width="190">
+<img src="docs/screenshots/setup/2-mac.jpg" alt="Step 2: Polly proudly checks the Mac: macOS, chip, memory, disk, Swift, Homebrew" width="190">
+<img src="docs/screenshots/setup/3-ollama.jpg" alt="Step 3: anxious Polly asks if she may install Ollama" width="190">
+<img src="docs/screenshots/setup/4-model.jpg" alt="Step 4: busy Polly downloads her model, with a progress bar" width="190">
+<img src="docs/screenshots/setup/5-voice.jpg" alt="Step 5: listening Polly, her voice is ready" width="190">
+<img src="docs/screenshots/setup/6-tools.jpg" alt="Step 6: excited Polly, Docker and local web search are ready" width="190">
+<img src="docs/screenshots/setup/7-done.jpg" alt="Step 7: Polly claps, all set" width="190">
+</p>
+
+On a brand-new install the guide opens by itself, and Polly shows up on your desktop once it's done. To run it again any time, use the menu-bar icon → **Setup check…** (or `npm run setup` in Poppy's folder). Apps installed with Homebrew (Ollama, Docker Desktop, Python, Node) come in their latest version and keep themselves up to date. Kokoro is pinned to the version Poppy is tested with.
 
 ## What you need
+
+The [install script and setup guide](#install-on-macos) check all of this for you.
+
 
 | | Needed? | Notes |
 | --- | --- | --- |
@@ -69,7 +139,9 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 
 If the default isn't installed, Poppy picks the best model you do have. You can change it any time in Settings.
 
-## Install and run
+## Install by hand
+
+Prefer to do it yourself? These are the same steps the script and the guide take.
 
 **1. Install Ollama and pull a model**
 
@@ -90,13 +162,13 @@ Make sure Ollama is running: the Ollama app in the menu bar, or `ollama serve` i
 Poppy looks for Python at `/opt/homebrew/bin/python3`, `/usr/local/bin/python3` and `/usr/bin/python3`, in that order.
 
 ```bash
-python3 -m pip install kokoro-onnx
+python3 -m pip install kokoro-onnx==0.4.7
 ```
 
 If pip says the environment is "externally managed" (Homebrew Python), use:
 
 ```bash
-python3 -m pip install --user --break-system-packages kokoro-onnx
+python3 -m pip install --user --break-system-packages kokoro-onnx==0.4.7
 ```
 
 **3. Get Poppy and start him**
@@ -137,6 +209,7 @@ Poppy appears in the bottom-right corner of your screen and a small Poppy icon s
 | Ask out loud | Turn on **Listen for "Poppy"** (Settings, the **≡** menu or the menu-bar icon), then say "Poppy, …" or "Polly, …". See [Voice input](#voice-input-say-poppy-or-polly) |
 | Open settings | The gear at the top of your balloon, or the menu-bar icon → Settings… |
 | Put Poppy back in the corner | Menu-bar icon → Reset position |
+| Check your setup again | Menu-bar icon → Setup check… (or the **≡** menu): the setup guide checks Ollama, the model, the voice and the tools, and offers to fix what's missing |
 | Tell Poppy an answer was good, or not | Click **good** or **not quite** under his latest reply |
 | See what Poppy knows | Ask "what do you know about me?", or the **≡** menu → Memory… |
 | Undo what he just learned | Say "forget that" |
@@ -320,6 +393,7 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 - **With Ollama only and tools off (the default), everything stays on your Mac.** Poppy only talks to the Ollama address in Settings (your own computer by default).
 - **With Claude switched on,** your messages, attached files, the memory note and the exchanges Poppy learns from go to Anthropic's API. See [Claude as Poppy's brain](#claude-as-poppys-brain-optional). Your API key is stored encrypted with the Mac's Keychain.
 - The only download is Kokoro's voice model from GitHub, once, on first start.
+- **The setup guide** only looks at your own Mac (macOS version, chip, memory, free disk, what's installed). It downloads only what you say yes to, from Homebrew, Ollama, pip (PyPI) or Docker Hub, and sends nothing about your Mac anywhere.
 - Files you attach are read on your Mac and sent only to Poppy's brain (your Ollama, or Claude when it's on). Poppy only reads files you pick or drop yourself.
 - Your chats and what Poppy learns are saved in `~/Library/Application Support/poppy/memory.db`, on your Mac only. See and delete them in the Memory window, or use **Forget everything**.
 - **Tools** (off by default) run the MCP servers you list in `mcp.json`, on your Mac. What a server does with your data is up to that server. Tools that can change things ask you first.
@@ -331,10 +405,12 @@ Settings are stored in `~/Library/Application Support/poppy/settings.json`.
 
 | Problem | Try this |
 | --- | --- |
+| The setup guide says Homebrew couldn't install something | Usually the installer wanted your Mac password, which the guide never asks for. Click **Open the download page**, or run the brew command it shows in Terminal, then **Check again**. |
+| Docker doesn't start from the setup guide | The first time, Docker Desktop shows its own welcome window: finish that, then click **Check again**. |
 | "I can't reach Ollama" | Start Ollama (open the app or run `ollama serve`) and check the address in Settings. |
 | "No Ollama models are installed yet" | Run `ollama pull <model>`, then press Refresh in Settings. |
 | "My model can't look at pictures" | Choose a model that supports images (see the table above). |
-| Poppy uses a robotic English voice | Kokoro isn't ready: install `kokoro-onnx` (see step 2), and wait for the first download. The status shows in Settings under English. |
+| Poppy uses a robotic English voice | Kokoro isn't ready: install `kokoro-onnx` (the setup guide's Voice step, or step 2 of [Install by hand](#install-by-hand)), and wait for the first download. The status shows in Settings under English. |
 | No sound at all | Check that "Speak replies out loud" is on, and your Mac's volume. |
 | The first reply is slow | Normal: Ollama is loading the model. Next replies are fast. |
 | Poppy is gone | Menu-bar icon → Show Poppy, or Reset position. |
@@ -355,12 +431,15 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 
 | Command | What it does |
 | --- | --- |
+| `./install.sh` | Check the Mac, install the packages, build, and start with the setup guide |
+| `npm run setup` | Build and start with the setup guide open |
 | `npm run dev` | Run with hot reload |
 | `npm run build` | Build into `out/` |
 | `npx electron .` | Start the built app |
 | `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
 | `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
-| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, mouth, waiting poses, pose picking, voice input rules, voice learning) |
+| `POPPY_SETUP_FAKE=ollama,model,embed,kokoro,python,docker,swift,brew npx electron . --setup` | Test the setup guide on a Mac that has everything: the listed things look missing, and "installing" them only pretends. `POPPY_SETUP_MAC='{"chipName":"Apple M4 Pro","memGB":16}'` shows another Mac, `POPPY_NO_FOCUS=1` keeps test windows from taking the keyboard |
+| `npm test` | Unit tests (setup rules, reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, mouth, waiting poses, pose picking, voice input rules, voice learning) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
@@ -392,9 +471,10 @@ src/
     attachments.ts reads attached files (images, PDFs, text)
     memory/        Poppy's memory: database (db.ts) and the recall / learn / reflect loop (index.ts)
     settings.ts    settings.json
+    setup.ts       the setup guide's checks (Mac, Ollama, Python + Kokoro, Docker, Node) and installs (Homebrew, Ollama downloads, pip)
   preload/     the window.poppy bridge
-  renderer/    the Poppy window (with the chat balloon), the settings window and the memory window
-  shared/      types and pure logic (mood tags, speech text, attachment rules, memory, Claude requests and fallback rules, the tools file and tool rules, Poppy's own tools' text)
+  renderer/    the Poppy window (with the chat balloon), the settings window, the memory window and the setup guide
+  shared/      types and pure logic (setup rules: which model fits a Mac and her pose per step, mood tags, speech text, attachment rules, memory, Claude requests and fallback rules, the tools file and tool rules, Poppy's own tools' text)
 sidecar/
   kokoro_tts.py  Kokoro text-to-speech over JSON lines on stdin/stdout
   listen.swift   the ears: Apple's SpeechAnalyzer on the microphone, text over JSON lines (listen-Info.plist: the microphone text)
@@ -407,6 +487,7 @@ scripts/
   cut_mouth_female.py  cuts Polly's closed, half, open and wide mouth (only the mouth) to lie exactly on her talking pose
   searxng.sh           sets up the local search engine (SearXNG in Docker, 127.0.0.1 only)
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
+install.sh     the one-line installer: checks the Mac, gets git and Node (asks first), builds, starts the setup guide
 assets/        the cut-out drawings, the menu-bar icon and the font
 docs/design/   the original drawings and the design notes
 test/          unit tests (vitest)

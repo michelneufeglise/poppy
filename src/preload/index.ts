@@ -12,6 +12,10 @@ import type {
   MemoryStats,
   PastMessage,
   Settings,
+  SetupInstall,
+  SetupProgress,
+  SetupResult,
+  SetupState,
   SpeechLang,
   ToolAsk,
   ToolsStatus,
@@ -134,6 +138,17 @@ const api = {
   checkLocalSearch: () => ipcRenderer.invoke('tools:check-search') as Promise<string | null>,
   listVoices: () => ipcRenderer.invoke('voice:list') as Promise<VoiceInfo[]>,
   testVoice: (lang: SpeechLang) => ipcRenderer.send('voice:test', lang),
+  // setup guide: checks, and installs only after the user's yes on that page
+  setupState: () => ipcRenderer.invoke('setup:state') as Promise<SetupState>,
+  setupInstall: (job: SetupInstall) => ipcRenderer.invoke('setup:install', job) as Promise<SetupResult>,
+  stopSetupInstall: () => ipcRenderer.send('setup:stop'),
+  onSetupProgress: (cb: (p: SetupProgress) => void) => on('setup:progress', cb),
+  /** Opens a download page by its key (brew, ollama, docker, python, node). */
+  openSetupPage: (key: string) => ipcRenderer.send('setup:page', key),
+  /** True on a brand-new install (she waits for the guide before showing up). */
+  setupFirst: () => ipcRenderer.invoke('setup:first') as Promise<boolean>,
+  closeSetup: () => ipcRenderer.send('setup:close'),
+  finishSetup: () => ipcRenderer.send('setup:finish'),
   getKokoroStatus: () => ipcRenderer.invoke('voice:kokoro-status') as Promise<KokoroStatus>,
   onKokoroStatus: (cb: (s: KokoroStatus) => void) => on('voice:kokoro-status', cb)
 }

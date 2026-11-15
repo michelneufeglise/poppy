@@ -297,3 +297,33 @@ export interface BrainStatus {
   /** Why Claude last failed, if the latest try did. */
   lastProblem: string | null
 }
+
+/** What the setup guide found on this Mac (src/main/setup.ts). */
+export interface SetupState {
+  mac: import('./setup').MacInfo
+  ollama: { installed: boolean; running: boolean; models: string[] }
+  /** python: a Python 3.10+ that Kokoro can use, or null. files: Kokoro's voice files are downloaded. */
+  voice: { python: string | null; kokoro: boolean; files: boolean }
+  /** npx: where Node's npx is (for MCP servers), or null. */
+  tools: { dockerInstalled: boolean; dockerRunning: boolean; search: boolean; npx: string | null }
+}
+
+/** One thing the guide may install or start, after the user said yes. */
+export interface SetupInstall {
+  what: 'ollama' | 'start-ollama' | 'model' | 'python' | 'kokoro' | 'docker' | 'search' | 'swift'
+  model?: string
+}
+
+export interface SetupProgress {
+  what: SetupInstall['what']
+  text: string
+  /** null while there's no size to go by. */
+  percent: number | null
+}
+
+/** How an install went; page = the download page that does it by hand (a key of PAGES). */
+export interface SetupResult {
+  ok: boolean
+  message: string
+  page?: string
+}

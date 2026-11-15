@@ -1,0 +1,206 @@
+/*
+ * The setup guide: the settings window's paper style, with her own drawing at every step and her words
+ * in the chat's speech balloon (bubble-poppy.png, tail at the bottom right, pointing at her head).
+ */
+.scroll {
+  bottom: 78px;
+}
+.step-of {
+  margin: 0;
+}
+h1 {
+  margin: 0 0 4px;
+  line-height: 1.05;
+}
+
+.say {
+  position: relative;
+  isolation: isolate;
+  min-height: 70px;
+  padding: 16px 30px 36px 24px;
+  font-size: 19px;
+  line-height: 1.25;
+  animation: pop 0.18s ease-out;
+}
+.say::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 20px 104px 34px 23px;
+  border-image: url('../../assets/chat/bubble-poppy.png') 42 219 72 48 fill stretch;
+  pointer-events: none;
+}
+.say .ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* She stands under the balloon's tail, at the right; the list flows around her. */
+.me {
+  float: right;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: -24px 0 4px 8px;
+  width: 150px;
+  shape-outside: inset(0 0 0 10px);
+}
+.pose {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+}
+.pose.pop {
+  animation: hop 0.35s ease-out;
+}
+.label {
+  height: 22px;
+  margin-top: -12px;
+}
+@keyframes pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0.4;
+  }
+}
+@keyframes hop {
+  30% {
+    transform: translateY(-10px) scale(1.03, 0.98);
+  }
+  60% {
+    transform: translateY(0) scale(0.98, 1.02);
+  }
+}
+
+/* What was checked: one line each, with a handwritten word for how it is. */
+.body > * + * {
+  margin-top: 4px;
+}
+.body label {
+  display: block;
+}
+.checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.checks li {
+  overflow: hidden; /* beside her, a line is only as wide as the room left */
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(38, 38, 36, 0.18);
+}
+.checks .what {
+  font-size: 19px;
+}
+.checks .note {
+  grid-column: 1 / -1;
+  color: var(--pencil);
+  font-size: 15px;
+  line-height: 1.15;
+}
+.mark {
+  align-self: start;
+  font-size: 16px;
+  padding: 0 7px;
+  border: 1.5px solid var(--pencil);
+  border-radius: 10px 12px 9px 13px;
+  transform: rotate(-2deg);
+  white-space: nowrap;
+}
+.mark.ok {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.mark.warn {
+  color: var(--pencil);
+  border-style: dashed;
+}
+.mark.missing {
+  color: var(--ink);
+  border-width: 2px;
+  font-style: italic;
+}
+
+.pick {
+  display: flex;
+  gap: 10px;
+  margin: 2px 0 6px;
+}
+.pick .btn {
+  opacity: 0.45;
+}
+.pick .btn.on {
+  opacity: 1;
+  filter: contrast(1.6);
+}
+
+/* Installing: what the installer says, and a graphite bar when there's a size to go by. */
+.work {
+  margin-top: 8px;
+}
+.work[hidden] {
+  display: none;
+}
+.work .hint {
+  min-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar {
+  height: 12px;
+  border: 1.5px solid var(--pencil);
+  border-radius: 7px 9px 6px 8px;
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(-55deg, var(--pencil) 0 2px, transparent 2px 5px);
+  transition: width 0.3s;
+}
+.bar.busy span {
+  width: 35%;
+  animation: slide 1.4s ease-in-out infinite alternate;
+}
+@keyframes slide {
+  from {
+    margin-left: 0;
+  }
+  to {
+    margin-left: 65%;
+  }
+}
+
+.nav {
+  position: absolute;
+  left: 26px;
+  right: 28px;
+  bottom: 26px;
+}
+.grow {
+  flex: 1;
+}
+.btn[hidden] {
+  display: none;
+}
+a.link {
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+
+.body .pick-label {
+  clear: both;
+  padding-top: 6px;
+}
