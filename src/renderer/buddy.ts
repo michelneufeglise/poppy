@@ -1,6 +1,7 @@
 import { MAX_FILES } from '../shared/attachments'
 import { buddyOf } from '../shared/buddy'
 import { Blinker, type BlinkFrames } from './blink'
+import { FRAME_SHAPES, Mouth, type MouthFrames } from './mouth'
 import { Motion } from './motion'
 import { FIRST_WALK_AFTER, HOME_HOP_MS, STEP_MS, STEP_PAUSE_MS, WALK_EVERY, planWalk } from './walk'
 import {
@@ -44,6 +45,18 @@ const urlFor = (s: Pose): string =>
 const labelFor = (pose: Pose): string => {
   const s = basePose(pose)
   return (character === 'female' && labelUrls.female[`../../assets/female/chat/label-${s}.png`]) || labelUrls.male[`../../assets/chat/label-${s}.png`]
+}
+// Polly's mouth frames (scripts/cut_mouth_female.py): <state>-closed/-half/-open/-wide.png, only the mouth.
+const mouthUrls = import.meta.glob('../../assets/female/mouth/*.png', { eager: true, import: 'default' }) as Urls
+const mouthFor = (s: Pose): MouthFrames | null => {
+  if (character !== 'female') return null
+  const frames: Partial<MouthFrames> = {}
+  for (const shape of FRAME_SHAPES) {
+    const url = mouthUrls[`../../assets/female/mouth/${s}-${shape}.png`]
+    if (!url) return null // a pose moves its mouth only with all four frames
+    frames[shape] = url
+  }
+  return frames as MouthFrames
 }
 const blinkFor = (s: Pose): BlinkFrames | null => {
   const closed = character === 'female' && blinkUrls[`../../assets/female/blink/${s}-closed.png`]
@@ -111,6 +124,7 @@ for (const s of POSES) {
   imgs[s] = img
 }
 const blinker = new Blinker(loopLayer)
+const mouth = new Mouth(loopLayer) // after the blink frames: the mouth lies on top of them
 const motion = new Motion({ lean: leanLayer, react: reactLayer, loop: loopLayer, shadow: poppy.querySelector<HTMLElement>('.shadow') ?? undefined })
 
 /** Poppy (male) or Polly (female): swaps every drawing, the state's name and what she's called. */
@@ -125,6 +139,7 @@ function useCharacter(next: Character): void {
   for (const s of POSES) load(s)
   if (!first) label.src = labelFor(state)
   blinker.show(blinkFor(first ? 'idle' : state)) // (state isn't set up yet on the first call)
+  mouth.show(mouthFor(first ? 'idle' : state))
 }
 useCharacter('male')
 
@@ -149,6 +164,7 @@ function setState(next: Pose, holdMs = 0, then: Pose = 'idle'): void {
     label.classList.toggle('two-lines', TWO_LINE_LABELS.has(basePose(next)))
     motion.setState(basePose(next))
     blinker.show(blinkFor(next))
+    mouth.show(mouthFor(next))
   }
   // "listening" only makes sense while the chat is open; it may have closed during the hold.
   if (holdMs) holdTimer = window.setTimeout(() => setState(then === 'listening' && panel.hidden ? 'idle' : then), holdMs)
@@ -228,7 +244,10 @@ window.setInterval(() => {
 // ---------- alive: her voice, the pointer, walking (motion.ts, walk.ts) ----------
 
 // Her bob follows how loud her voice is (Kokoro sentences; the Mac voice keeps the fixed bob).
-api.onVoiceLevels((l) => motion.voice(l.levels, l.stepMs))
+api.onVoiceLevels((l) => {
+  motion.voice(l.levels, l.stepMs)
+  mouth.levels(l.levels, l.stepMs) // and her mouth (in poses that have mouth frames)
+})
 
 /** Moods that end a reply with two happy hops. */
 const CELEBRATE_MOODS = new Set<Pose>(['happy', 'excited', 'cheerful', 'laughing', 'proud', 'clapping'])
@@ -809,6 +828,7 @@ api.onChatUpdate((u) => {
 // Each spoken sentence: talking and her mood (or a close relative) take turns (poses.ts).
 api.onSpeaking((speaking) => {
   if (speaking && replying) stepSpeaking()
+  mouth.speaking(speaking)
 })
 let speakStep = -1
 let lastStepAt = 0

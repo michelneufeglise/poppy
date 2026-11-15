@@ -35,7 +35,7 @@ Poppy is a small pencil-drawn character who sits on your desktop. Click him and 
 - **Lives on your desktop.** A see-through, always-on-top window in the bottom-right corner. Drag him anywhere; he remembers the spot. Clicks go straight through to your desktop except on Poppy himself.
 - **Chats with your local model.** Replies stream in from Ollama, word by word. Or, if you add an API key, from Claude, with Ollama taking over when Claude can't answer.
 - **Shows how he feels.** The model starts each reply with a mood (happy, curious, surprised…), and Poppy switches to the matching drawing. There are 48 poses, all hand-drawn: from happy and curious to grumpy, hungry and chilling with sunglasses. He also waves when you close the chat, yawns before he falls asleep, and looks spooked when he can't reach Ollama.
-- **Poppy or Polly.** The female version is called **Polly**. Pick **Polly (female)** in Settings (or the menu-bar icon → Poppy or Polly) and every pose, the state names and the menu-bar icon switch to her drawings (the same 48 states, with cat ears), and she introduces herself as Polly. Polly also blinks, in 33 of her 48 poses (all but the ones with closed eyes, sunglasses or tears), and her listening pose is a drawing of its own (hand cupped behind her ear). The app itself is still called Poppy.
+- **Poppy or Polly.** The female version is called **Polly**. Pick **Polly (female)** in Settings (or the menu-bar icon → Poppy or Polly) and every pose, the state names and the menu-bar icon switch to her drawings (the same 48 states, with cat ears), and she introduces herself as Polly. Polly also blinks, in 33 of her 48 poses (all but the ones with closed eyes, sunglasses or tears), and her listening pose is a drawing of its own (hand cupped behind her ear). In her talking pose her mouth moves while she speaks, with four mouth shapes plus the drawn one: wide or open on her louder syllables, half shut or closed on the softer moments, closed in the pauses (with the Mac voice it opens and closes at a steady talking pace). The app itself is still called Poppy.
 - **Listens for its name (optional).** Say "Polly" (or "Poppy") and your question: the music goes down, the chat opens, your words appear in your balloon, and a short pause sends it. Apple's speech recognition does this on your Mac only.
 - **Talks out loud.** English replies use Kokoro, a natural-sounding voice that runs on your Mac. Dutch replies use the Mac voice Xander. Long answers are read up to about 40 words, and then Poppy sums up the rest in a sentence or two.
 - **Reads your files.** Drop in images, PDFs, text and code files (up to 5 at a time).
@@ -360,13 +360,14 @@ Electron + [electron-vite](https://electron-vite.org) + TypeScript, no UI framew
 | `npx electron .` | Start the built app |
 | `POPPY_DATA_DIR=/tmp/poppy-test npx electron .` | Start with a separate, empty data folder (settings, voice files, memory), like a first start on a new Mac |
 | `POPPY_ANTHROPIC_URL=http://127.0.0.1:8787 npx electron .` | Send Claude requests to a local test server instead of `api.anthropic.com` (Poppy ignores `ANTHROPIC_BASE_URL`, so your key can't leak through a stray environment variable) |
-| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, waiting poses, pose picking, voice input rules, voice learning) |
+| `npm test` | Unit tests (reply parsing, speech clean-up and language, attachment rules, memory logic, tools, motion, blinking, mouth, waiting poses, pose picking, voice input rules, voice learning) |
 | `npm run typecheck` | TypeScript check |
 | `npm run cut-sheet` | Re-cut Poppy's first 12 poses from the emotion sheet |
 | `npm run cut-sheet2` | Re-cut the 36 extra poses and their names from the second sheet |
 | `npm run searxng` | Set up (or re-create) the local search engine in Docker |
 | `npm run cut-sheet-female` | Re-cut Polly (female) from her two sheets |
 | `npm run cut-blink-female` | Re-cut Polly's blink frames from the half-closed and closed-eye copies of her sheets |
+| `npm run cut-mouth-female` | Re-cut Polly's mouth frames (closed, half, open, wide) from the copies of her talking pose |
 | `npm run cut-listening-female` | Re-cut Polly's listening pose and its blink frames from its own drawing |
 | `npm run build-listener` | Check that the voice-input helper compiles (into `out/listen`; the app builds its own copy in the data folder) |
 | `npm run cut-chat` | Re-cut the balloon, bubbles, icons and buttons from the chat-window picture |
@@ -403,6 +404,7 @@ scripts/
   cut_sheet_female.py  cuts Polly, the female version (48 poses, names, header, menu-bar icon) out of her two sheets
   cut_blink_female.py  cuts Polly's blink frames (half-closed and closed eyes) to lie exactly on her poses
   cut_listening_female.py  cuts Polly's own listening drawing and its blink frames
+  cut_mouth_female.py  cuts Polly's closed, half, open and wide mouth (only the mouth) to lie exactly on her talking pose
   searxng.sh           sets up the local search engine (SearXNG in Docker, 127.0.0.1 only)
   cut_chat.py    cuts the balloon, bubbles and icons out of docs/design/chat-window.jpg
 assets/        the cut-out drawings, the menu-bar icon and the font
@@ -417,6 +419,7 @@ Poppy is not redrawn in code. Every pose and every piece of the chat is cut stra
 - [`docs/design/emotions-sheet.jpg`](docs/design/emotions-sheet.jpg): the first 12 poses and their names.
 - [`docs/design/emotions-sheet-2.jpg`](docs/design/emotions-sheet-2.jpg): 36 more poses ("More emotions & states").
 - [`docs/design/emotions-sheet-female.jpg`](docs/design/emotions-sheet-female.jpg) and [`-2.jpg`](docs/design/emotions-sheet-female-2.jpg): Polly's (female) 48 poses. The `-half.jpg` and `-closed.jpg` files next to them ([`emotions-sheet-female-half.jpg`](docs/design/emotions-sheet-female-half.jpg), [`-closed.jpg`](docs/design/emotions-sheet-female-closed.jpg), [`-2-half.jpg`](docs/design/emotions-sheet-female-2-half.jpg), [`-2-closed.jpg`](docs/design/emotions-sheet-female-2-closed.jpg)) are copies with her eyes half closed and closed; only the eyes are taken from them, for her blink.
+- [`docs/design/talking-female-mouth-closed.jpg`](docs/design/talking-female-mouth-closed.jpg) , [`-open.jpg`](docs/design/talking-female-mouth-open.jpg) and [`-half-wide.jpg`](docs/design/talking-female-mouth-half-wide.jpg): Polly's talking pose with the mouth closed, open, half shut and wide open; only the mouth is taken from them, so it moves while she talks.
 - [`docs/design/listening-female.jpg`](docs/design/listening-female.jpg): Polly's listening pose, a drawing of its own. Its blink comes from the front panels of [`listening-female-blink.jpg`](docs/design/listening-female-blink.jpg), lined up with it. Her first sheet's listening pose is kept as a second one (`listening-2`), shown while she hears a spoken question.
 - [`docs/design/chat-window.jpg`](docs/design/chat-window.jpg): the speech bubbles (yours and Poppy's, stretched to fit the text), the pencil icons, the input and the Send button. The settings window uses its header and frame.
 

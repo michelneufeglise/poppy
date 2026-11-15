@@ -75,7 +75,8 @@ img {
   opacity: 1;
 }
 /* Polly's blink frames (blink.ts) lie exactly over her pose; they switch at once, no fade. */
-.poppy img.blink {
+.poppy img.blink,
+.poppy img.mouth {
   transition: none;
 }
 /* motion.ts shrinks and fades the shadow while she's in the air. */
